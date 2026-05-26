@@ -1,0 +1,58 @@
+version: '3.8'
+
+# 1. NETWORKS (Moved to its own top-level block)
+networks:
+  estc-net:
+    driver: bridge
+
+# 2. VOLUMES (Moved to its own top-level block)
+volumes:
+  postgres_data:
+
+# 3. SERVICES (All indented exactly 2 spaces)
+services:
+  classifier-api:
+    build:
+      context: ./estc/services/classifier_api
+    ports:
+      - "8001:8001"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8001/healthz"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    networks:
+      - estc-net
+
+  orchestrator-app:
+    build:
+      context: ./estc/services/orchestrator # Fixed path!
+    networks:
+      - estc-net
+
+  ui-client:
+    build:
+      context: ./estc/services/ui # Fixed path!
+    networks:
+      - estc-net
+
+  mcp-postgres:
+    image: postgres:16-alpine
+    container_name: mcp-postgres
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-estc}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-estc}
+      POSTGRES_DB: ${POSTGRES_DB:-estc}
+    ports:
+      - "5432:5432"
+    volumes:
+      - ./estc/infra/sql/init.sql:/docker-entrypoint-initdb.d/01-init.sql   # Fixed path!
+      - ./estc/infra/sql/seed.sql:/docker-entrypoint-initdb.d/02-seed.sql   # Fixed path!
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - estc-net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 5s
+      timeout: 5s
+      retries: 5

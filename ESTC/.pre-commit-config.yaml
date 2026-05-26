@@ -1,0 +1,21 @@
+repos:
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.4.10  # Use a stable version compatible with pre-commit 3.8
+    hooks:
+      - id: ruff
+        args: [ --fix ]
+
+  - repo: https://github.com/psf/black
+    rev: 24.4.2  # Stable 2024 release
+    hooks:
+      - id: black
+        name: black (check)
+        entry: black --check
+        types: [python]
+
+  - repo: https://github.com/pre-commit/mirrors-mypy
+    rev: v1.10.0
+    hooks:
+      - id: mypy
+        name: mypy (estc/shared/)
+        files: ^estc/shared/
