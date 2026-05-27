@@ -1,15 +1,10 @@
-version: '3.8'
-
-# 1. NETWORKS (Moved to its own top-level block)
 networks:
   estc-net:
     driver: bridge
 
-# 2. VOLUMES (Moved to its own top-level block)
 volumes:
   postgres_data:
 
-# 3. SERVICES (All indented exactly 2 spaces)
 services:
   classifier-api:
     build:
@@ -26,19 +21,19 @@ services:
 
   orchestrator-app:
     build:
-      context: ./estc/services/orchestrator # Fixed path!
+      context: ./estc/services/orchestrator
     networks:
       - estc-net
 
   ui-client:
     build:
-      context: ./estc/services/ui # Fixed path!
+      context: ./estc/services/ui
     networks:
       - estc-net
 
-  mcp-postgres:
+  postgres-db:
     image: postgres:16-alpine
-    container_name: mcp-postgres
+    container_name: postgres-db
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-estc}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-estc}
@@ -46,8 +41,9 @@ services:
     ports:
       - "5432:5432"
     volumes:
-      - ./estc/infra/sql/init.sql:/docker-entrypoint-initdb.d/01-init.sql   # Fixed path!
-      - ./estc/infra/sql/seed.sql:/docker-entrypoint-initdb.d/02-seed.sql   # Fixed path!
+      - ./estc/infra/sql/init.sql:/docker-entrypoint-initdb.d/01-init.sql
+      - ./estc/infra/sql/grants.sql:/docker-entrypoint-initdb.d/02-grants.sql
+      - ./estc/infra/sql/seed.sql:/docker-entrypoint-initdb.d/03-seed.sql
       - postgres_data:/var/lib/postgresql/data
     networks:
       - estc-net
@@ -56,3 +52,22 @@ services:
       interval: 5s
       timeout: 5s
       retries: 5
+
+  mcp-postgres-server:
+    build:
+      context: ./estc/services/mcp_postgres
+    container_name: mcp-postgres-server
+    environment:
+      POSTGRES_HOST: postgres-db
+      POSTGRES_PORT: "5432"
+      POSTGRES_DB: ${POSTGRES_DB:-estc}
+      POSTGRES_READER_USER: ${POSTGRES_READER_USER:-estc_reader}
+      POSTGRES_READER_PASSWORD: ${POSTGRES_READER_PASSWORD:-estc_reader_dev_pw}
+    depends_on:
+      postgres-db:
+        condition: service_healthy
+    stdin_open: true
+    tty: true
+    mem_limit: 256m
+    networks:
+      - estc-net
