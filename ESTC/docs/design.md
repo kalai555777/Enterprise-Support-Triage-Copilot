@@ -25,7 +25,7 @@ The ESTC architecture uses a decoupled, distributed microservices approach. It i
 * **Implementation Strategy:** Train the network on a labeled dataset of internal support inquiries. Expose the model through an optimized FastAPI endpoint. This setup provides microsecond intent classifications, completely bypassing external LLM dependency for foundational routing tasks.
 
 ### Component B: Secure Context Layer (Model Context Protocol - MCP)
-* **Technology:** Anthropic MCP SDK.
+* **Technology:** FastMCP framework (standalone Python implementation of the Model Context Protocol).
 * **Architecture:** Host two independent, read-only local MCP servers:
   1. **PostgreSQL Server:** Handles verification of company health records, subscription states, and payment profiles.
   2. **GitHub Server:** Grants access to repository issue states, bug trackers, and recent deployment commit logs.

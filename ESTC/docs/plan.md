@@ -42,7 +42,7 @@ Goal: a reproducible local dev environment, an empty multi-service Docker scaffo
   **Verify:** `.venv\Scripts\python --version` reports `Python 3.11.*`.
 - [ ] **1.2.2** Create `requirements.txt` with pinned versions for: `fastapi==0.115.*`, `uvicorn[standard]==0.30.*`, `torch==2.4.*`, `transformers==4.44.*`, `datasets==2.20.*`, `scikit-learn==1.5.*`, `pydantic==2.9.*`, `python-dotenv==1.0.*`, `httpx==0.27.*`, `pytest==8.3.*`, `pytest-asyncio==0.24.*`, `ruff==0.6.*`, `black==24.8.*`, `mypy==1.11.*`.
   **Verify:** `.venv\Scripts\pip install -r requirements.txt` exits 0.
-- [ ] **1.2.3** Create `requirements-orchestrator.txt` (separate file): `langgraph==0.2.*`, `langchain==0.3.*`, `langchain-openai==0.2.*`, `langchain-anthropic==0.2.*`, `langchain-community==0.3.*`, `chromadb==0.5.*`, `sentence-transformers==3.1.*`, `ragas==0.2.*`, `langsmith==0.1.*`, `mcp==1.0.*`, `psycopg[binary]==3.2.*`, `PyGithub==2.4.*`.
+- [ ] **1.2.3** Create `requirements-orchestrator.txt` (separate file): `langgraph==0.2.*`, `langchain==0.3.*`, `langchain-openai==0.2.*`, `langchain-anthropic==0.2.*`, `langchain-community==0.3.*`, `chromadb==0.5.*`, `sentence-transformers==3.1.*`, `ragas==0.2.*`, `langsmith==0.1.*`, `fastmcp==2.*`, `psycopg[binary]==3.2.*`, `PyGithub==2.4.*`.
   **Verify:** `.venv\Scripts\pip install -r requirements-orchestrator.txt` exits 0.
 - [ ] **1.2.4** Create `requirements-ui.txt`: `streamlit==1.38.*`, `streamlit-extras==0.4.*`, `httpx-sse==0.4.*`.
   **Verify:** `.venv\Scripts\pip install -r requirements-ui.txt` exits 0.
@@ -128,8 +128,8 @@ Goal: a fine-tuned DistilBERT intent classifier exposed as an internal FastAPI s
 Goal: two independent, **read-only** MCP servers — PostgreSQL (transactional context) and GitHub (engineering context) — each exposing typed tool schemas. The orchestrator cannot execute raw SQL or shell commands.
 
 ### 3.1 PostgreSQL MCP Server
-- [ ] **3.1.1** Create `services/mcp-postgres/server.py` using the `mcp` SDK. Initialize an MCP `Server("estc-postgres")`.
-  **Verify:** `.venv\Scripts\python -c "from estc.services.mcp_postgres.server import server; print(server.name)"` prints `estc-postgres`.
+- [ ] **3.1.1** Create `services/mcp-postgres/server.py` using the `fastmcp` framework. Initialize `mcp = FastMCP("estc-postgres")`.
+  **Verify:** `.venv\Scripts\python -c "from estc.services.mcp_postgres.server import mcp; print(mcp.name)"` prints `estc-postgres`.
 - [ ] **3.1.2** Register tool `get_customer_by_id(company_id: str)` running parameterized `SELECT * FROM enterprise_customers WHERE company_id = %s`.
   **Verify:** `mcp-inspector ./services/mcp-postgres/server.py` lists `get_customer_by_id` with one string param.
 - [ ] **3.1.3** Register tool `get_subscription_status(company_id: str)` returning `subscription_tier` + `account_status`.
