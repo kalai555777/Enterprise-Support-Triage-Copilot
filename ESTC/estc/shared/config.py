@@ -10,6 +10,8 @@ class Settings(BaseSettings):
     POSTGRES_DB: str = "estc"
     POSTGRES_HOST: str = "mcp-postgres"
     POSTGRES_PORT: int = 5432
+    POSTGRES_READER_USER: str = "estc_reader"
+    POSTGRES_READER_PASSWORD: str = "estc_reader_dev_pw"
     CLASSIFIER_API_URL: str = "http://classifier-api:8001"
 
     # Tell Pydantic to read from the .env file in the root directory
