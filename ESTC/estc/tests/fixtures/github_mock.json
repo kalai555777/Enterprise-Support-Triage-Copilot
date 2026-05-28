@@ -1,0 +1,42 @@
+{
+  "kalai555777/Enterprise-Support-Triage-Copilot": {
+    "issues": [
+      {
+        "number": 42,
+        "title": "500 error on /api/orders for Enterprise tier customers",
+        "url": "https://github.com/kalai555777/Enterprise-Support-Triage-Copilot/issues/42",
+        "labels": ["bug", "priority:high"],
+        "state": "open"
+      },
+      {
+        "number": 37,
+        "title": "Login lockout race condition during MFA flow",
+        "url": "https://github.com/kalai555777/Enterprise-Support-Triage-Copilot/issues/37",
+        "labels": ["bug", "auth"],
+        "state": "open"
+      },
+      {
+        "number": 11,
+        "title": "Old: deprecated /v1/orders cleanup",
+        "url": "https://github.com/kalai555777/Enterprise-Support-Triage-Copilot/issues/11",
+        "labels": ["chore"],
+        "state": "closed"
+      }
+    ],
+    "commits": [
+      {"sha": "abc123", "author": "kalai555777", "message": "fix: handle null company_id in /api/orders"},
+      {"sha": "def456", "author": "kalai555777", "message": "feat: add /api/orders endpoint"},
+      {"sha": "ghi789", "author": "kalai555777", "message": "chore: bump fastmcp to 3.3"},
+      {"sha": "jkl012", "author": "kalai555777", "message": "docs: README update for Phase 3.2"},
+      {"sha": "mno345", "author": "kalai555777", "message": "ci: add e2e workflow skeleton"}
+    ],
+    "deployments": [
+      {
+        "workflow": "Deploy to staging",
+        "status": "completed",
+        "conclusion": "success",
+        "run_url": "https://github.com/kalai555777/Enterprise-Support-Triage-Copilot/actions/runs/9999"
+      }
+    ]
+  }
+}

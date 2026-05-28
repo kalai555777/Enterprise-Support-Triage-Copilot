@@ -71,3 +71,18 @@ services:
     mem_limit: 256m
     networks:
       - estc-net
+
+  mcp-github-server:
+    build:
+      context: ./estc/services/mcp_github
+    container_name: mcp-github-server
+    environment:
+      GITHUB_PAT: ${GITHUB_PAT:-}
+      GITHUB_MOCK_PATH: /app/fixtures/github_mock.json
+    volumes:
+      - ./estc/tests/fixtures:/app/fixtures:ro
+    stdin_open: true
+    tty: true
+    mem_limit: 256m
+    networks:
+      - estc-net
