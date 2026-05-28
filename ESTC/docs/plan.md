@@ -170,7 +170,7 @@ Goal: two independent, **read-only** MCP servers — PostgreSQL (transactional c
 Goal: a LangGraph state machine implementing `classify → router → {billing | bug | feature | lockout} → supervisor_review`, backed by a LangChain RAG pipeline over ChromaDB, with Ragas + LangSmith observability.
 
 ### 4.1 Shared Schema
-- [ ] **4.1.1** Implement `shared/schemas/agent_state.py` with the exact `AgentState` Pydantic model from `design.md` section 3 (8 fields).
+- [x] **4.1.1** Implement `shared/schemas/agent_state.py` with the exact `AgentState` Pydantic model from `design.md` section 3 (8 fields).
   **Verify:** `.venv\Scripts\python -c "from estc.shared.schemas.agent_state import AgentState; AgentState(ticket_id='t1', raw_issue_text='x', company_id='9422')"` exits 0.
 
 ### 4.2 RAG Pipeline (LangChain + ChromaDB)
