@@ -160,7 +160,7 @@ Goal: two independent, **read-only** MCP servers — PostgreSQL (transactional c
   **Verify:** `docker compose up -d mcp-github-server` healthy; `docker compose logs mcp-github-server` shows "tools registered: 3".
 
 ### 3.3 Phase 3 Exit Gate
-- [ ] **3.3.1** Run the MCP inspector against both servers and confirm only read-style tools appear.
+- [x] **3.3.1** Run the MCP inspector against both servers and confirm only read-style tools appear.
   **Verify:** Tool list output contains the 3 + 3 tool names above and no others.
 
 ---
