@@ -174,13 +174,13 @@ Goal: a LangGraph state machine implementing `classify → router → {billing |
   **Verify:** `.venv\Scripts\python -c "from estc.shared.schemas.agent_state import AgentState; AgentState(ticket_id='t1', raw_issue_text='x', company_id='9422')"` exits 0.
 
 ### 4.2 RAG Pipeline (LangChain + ChromaDB)
-- [ ] **4.2.1** Drop 10–20 sample product docs into `data/knowledge_base/` (markdown). Cover API errors, billing, account lockout flows.
+- [x] **4.2.1** Drop 10–20 sample product docs into `data/knowledge_base/` (markdown). Cover API errors, billing, account lockout flows.
   **Verify:** `Get-ChildItem data/knowledge_base/*.md | Measure-Object | Select Count` ≥ 10.
-- [ ] **4.2.2** Create `services/orchestrator/rag/ingest.py` that chunks docs with `ParentDocumentRetriever` (child 256 tokens / parent 1024) and embeds with `BAAI/bge-large-en-v1.5` into Chroma persisted at `./chroma_db/`.
+- [x] **4.2.2** Create `services/orchestrator/rag/ingest.py` that chunks docs with `ParentDocumentRetriever` (child 256 tokens / parent 1024) and embeds with `BAAI/bge-large-en-v1.5` into Chroma persisted at `./chroma_db/`.
   **Verify:** `.venv\Scripts\python services/orchestrator/rag/ingest.py` then `.venv\Scripts\python -c "import chromadb; c=chromadb.PersistentClient('./chroma_db'); print(c.get_collection('estc').count())"` ≥ 50.
-- [ ] **4.2.3** Add `services/orchestrator/rag/retriever.py` building two semantic indices — `kb_billing` and `kb_technical` — with a semantic router selecting between them.
+- [x] **4.2.3** Add `services/orchestrator/rag/retriever.py` building two semantic indices — `kb_billing` and `kb_technical` — with a semantic router selecting between them.
   **Verify:** Unit test `tests/test_rag.py::test_semantic_router` routes "500 error" to `kb_technical` and "refund" to `kb_billing`.
-- [ ] **4.2.4** Smoke retrieval test: a known-answer query returns at least one chunk with the expected phrase.
+- [x] **4.2.4** Smoke retrieval test: a known-answer query returns at least one chunk with the expected phrase.
   **Verify:** `.venv\Scripts\pytest tests/test_rag.py::test_retrieval_recall -v` passes.
 
 ### 4.3 LangGraph Nodes
