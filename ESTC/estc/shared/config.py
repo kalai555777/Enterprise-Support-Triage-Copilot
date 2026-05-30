@@ -2,7 +2,10 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 class Settings(BaseSettings):
     HF_TOKEN: str | None = None
+    OPENAI_API_KEY: str | None = None
+    ANTHROPIC_API_KEY: str | None = None
     GITHUB_PAT: str | None = None
+    ESTC_GITHUB_REPO: str = "kalai555777/Enterprise-Support-Triage-Copilot"
     LANGSMITH_API_KEY: str | None = None
     LANGSMITH_PROJECT: str = "estc-dev"
     POSTGRES_USER: str = "estc"
