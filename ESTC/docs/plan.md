@@ -184,19 +184,19 @@ Goal: a LangGraph state machine implementing `classify → router → {billing |
   **Verify:** `.venv\Scripts\pytest tests/test_rag.py::test_retrieval_recall -v` passes.
 
 ### 4.3 LangGraph Nodes
-- [ ] **4.3.1** Create `services/orchestrator/graph/nodes/classify.py` calling `POST $CLASSIFIER_API_URL/classify` and writing `state.intent`.
+- [x] **4.3.1** Create `services/orchestrator/graph/nodes/classify.py` calling `POST $CLASSIFIER_API_URL/classify` and writing `state.intent`.
   **Verify:** Unit test using `httpx.MockTransport` returns expected intent for known input.
-- [ ] **4.3.2** Conditional router function `route_by_intent(state)` returning one of `billing_agent | bug_agent | feature_agent | lockout_agent`.
+- [x] **4.3.2** Conditional router function `route_by_intent(state)` returning one of `billing_agent | bug_agent | feature_agent | lockout_agent`.
   **Verify:** Pytest table-driven test covers all 4 intents.
-- [ ] **4.3.3** `billing_agent` node: calls Postgres MCP `get_subscription_status`, runs RAG over `kb_billing`, drafts a reply with `gpt-4o-mini` (or Claude Sonnet 4.6 if `ANTHROPIC_API_KEY` set).
+- [x] **4.3.3** `billing_agent` node: calls Postgres MCP `get_subscription_status`, runs RAG over `kb_billing`, drafts a reply with `gpt-4o-mini` (or Claude Sonnet 4.6 if `ANTHROPIC_API_KEY` set).
   **Verify:** Integration test against seeded company 9422 produces `state.agent_draft_response` mentioning the customer's tier.
-- [ ] **4.3.4** `bug_agent` node: calls GitHub MCP `search_issues`, runs RAG over `kb_technical`, drafts a reply citing issue numbers.
+- [x] **4.3.4** `bug_agent` node: calls GitHub MCP `search_issues`, runs RAG over `kb_technical`, drafts a reply citing issue numbers.
   **Verify:** Test asserts `state.agent_draft_response` contains `#<digit>`.
-- [ ] **4.3.5** `feature_agent` node: RAG over both indices; drafts an acknowledgement and creates an internal-only synthetic ticket (no MCP write).
+- [x] **4.3.5** `feature_agent` node: RAG over both indices; drafts an acknowledgement and creates an internal-only synthetic ticket (no MCP write).
   **Verify:** Test asserts `state.execution_logs` records "feature_logged".
-- [ ] **4.3.6** `lockout_agent` node (escalation path): pulls Postgres customer record, marks `state.requires_escalation = True` regardless of confidence, drafts a verification explainer.
+- [x] **4.3.6** `lockout_agent` node (escalation path): pulls Postgres customer record, marks `state.requires_escalation = True` regardless of confidence, drafts a verification explainer.
   **Verify:** Test asserts `state.requires_escalation is True` and `state.confidence_score >= 0`.
-- [ ] **4.3.7** `supervisor_review` node: if `state.confidence_score < 0.70` OR `state.requires_escalation`, append "ESCALATE" to logs and set requires_escalation. Otherwise mark "AUTO_APPROVED".
+- [x] **4.3.7** `supervisor_review` node: if `state.confidence_score < 0.70` OR `state.requires_escalation`, append "ESCALATE" to logs and set requires_escalation. Otherwise mark "AUTO_APPROVED".
   **Verify:** Two pytest scenarios — one low-confidence, one high — produce the correct log entries.
 
 ### 4.4 Graph Wiring
