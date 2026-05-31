@@ -200,9 +200,9 @@ Goal: a LangGraph state machine implementing `classify → router → {billing |
   **Verify:** Two pytest scenarios — one low-confidence, one high — produce the correct log entries.
 
 ### 4.4 Graph Wiring
-- [ ] **4.4.1** Create `services/orchestrator/graph/build.py` wiring nodes via `StateGraph(AgentState)` with conditional edges. Compile with `MemorySaver` checkpointer for run-resume.
+- [x] **4.4.1** Create `services/orchestrator/graph/build.py` wiring nodes via `StateGraph(AgentState)` with conditional edges. Compile with `MemorySaver` checkpointer for run-resume.
   **Verify:** `.venv\Scripts\python -c "from estc.services.orchestrator.graph.build import graph; print(graph.get_graph().draw_mermaid())"` prints a Mermaid diagram showing all 6 nodes.
-- [ ] **4.4.2** Expose a `run_ticket(ticket_id, text, company_id) -> AgentState` async entrypoint that streams node events.
+- [x] **4.4.2** Expose a `run_ticket(ticket_id, text, company_id) -> AgentState` async entrypoint that streams node events.
   **Verify:** End-to-end test invokes it against the seeded DB and returns a populated `AgentState` in < 10s.
 
 ### 4.5 Observability & Evaluation
