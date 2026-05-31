@@ -12,16 +12,59 @@ services:
     ports:
       - "8001:8001"
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8001/healthz"]
+      # python:3.11-slim ships no curl — probe /healthz with urllib (consistent w/ orchestrator).
+      test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8001/healthz').status==200 else 1)"]
       interval: 10s
       timeout: 5s
-      retries: 3
+      retries: 5
+      start_period: 30s
     networks:
       - estc-net
 
   orchestrator-app:
     build:
-      context: ./estc/services/orchestrator
+      # Repo-root context: the Dockerfile copies the whole estc/* tree (the app imports
+      # across shared, graph, rag, and the in-process MCP tool modules).
+      context: .
+      dockerfile: estc/services/orchestrator/Dockerfile
+    container_name: orchestrator-app
+    ports:
+      - "8002:8002"
+    environment:
+      CLASSIFIER_API_URL: http://classifier-api:8001
+      POSTGRES_HOST: postgres-db
+      POSTGRES_PORT: "5432"
+      POSTGRES_DB: ${POSTGRES_DB:-estc}
+      POSTGRES_READER_USER: ${POSTGRES_READER_USER:-estc_reader}
+      POSTGRES_READER_PASSWORD: ${POSTGRES_READER_PASSWORD:-estc_reader_dev_pw}
+      # Deterministic offline triage (matches the test suite + spec AC-B5): the in-process
+      # GitHub tool falls back to GITHUB_MOCK_PATH when GITHUB_PAT is empty. Left empty on
+      # purpose — the real-API path in the Phase 3.2 GitHub server raises IndexError on an
+      # empty issue search, which is a separate (out-of-scope) bug to harden there.
+      GITHUB_PAT: ""
+      GITHUB_MOCK_PATH: /app/estc/tests/fixtures/github_mock.json
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      LANGSMITH_API_KEY: ${LANGSMITH_API_KEY:-}
+      LANGSMITH_TRACING: ${LANGSMITH_TRACING:-false}
+      LANGSMITH_PROJECT: ${LANGSMITH_PROJECT:-estc-dev}
+    volumes:
+      # Persisted RAG store (built by rag/ingest.py); CHROMA_PATH is the relative ./chroma_db.
+      # Mounted read-WRITE: chromadb >=1.x opens the SQLite store in write mode (WAL/journal)
+      # even for pure reads, so a :ro mount fails with "attempt to write a readonly database".
+      - ./chroma_db:/app/chroma_db
+    depends_on:
+      classifier-api:
+        condition: service_healthy
+      postgres-db:
+        condition: service_healthy
+    healthcheck:
+      # python:3.11-slim ships no curl — probe /healthz with urllib instead.
+      test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8002/healthz').status==200 else 1)"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 90s
     networks:
       - estc-net
 
