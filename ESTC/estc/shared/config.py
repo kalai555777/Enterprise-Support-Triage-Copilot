@@ -8,6 +8,7 @@ class Settings(BaseSettings):
     ESTC_GITHUB_REPO: str = "kalai555777/Enterprise-Support-Triage-Copilot"
     LANGSMITH_API_KEY: str | None = None
     LANGSMITH_PROJECT: str = "estc-dev"
+    LANGSMITH_TRACING: bool = False
     POSTGRES_USER: str = "estc"
     POSTGRES_PASSWORD: str = "estc_dev_pw"
     POSTGRES_DB: str = "estc"
