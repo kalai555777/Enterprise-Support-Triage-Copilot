@@ -1,0 +1,49 @@
+# Orchestrator-app runtime deps (Phase 4.6, task 4.6.2).
+# EXACT pins mirroring the working dev venv. Loose >= ranges across
+# langchain/chromadb/sentence-transformers exploded pip's resolver in the slim image
+# ("resolution-too-deep", backtracking on huggingface-hub), so every version is pinned to
+# the set already resolved and tested locally. starlette/sse-starlette are capped together:
+# sse-starlette>=3 pulls starlette>=1.0, which breaks the fastapi 0.115 pin.
+
+# --- Web / SSE layer ---
+fastapi==0.115.14
+uvicorn[standard]==0.48.0
+starlette==0.46.2
+sse-starlette==2.4.1
+httpx==0.28.1
+httpx-sse==0.4.3
+pydantic==2.13.4
+pydantic-settings==2.14.1
+python-dotenv==1.2.2
+
+# --- LangGraph / LangChain ---
+langgraph==1.2.2
+langgraph-checkpoint==4.1.1
+langgraph-prebuilt==1.1.0
+langgraph-sdk==0.3.15
+langchain==1.3.2
+langchain-core==1.4.0
+langchain-community==0.4.2
+langchain-text-splitters==1.1.2
+langsmith==0.8.5
+
+# --- RAG: Chroma + embeddings (the backtracking-prone ML/hub closure, fully pinned) ---
+chromadb==1.5.9
+onnxruntime==1.26.0
+sentence-transformers==5.5.1
+transformers==4.44.2
+tokenizers==0.19.1
+huggingface-hub==0.36.2
+safetensors==0.7.0
+torch==2.4.1
+numpy==2.4.6
+scikit-learn==1.5.2
+scipy==1.17.1
+pillow==12.2.0
+
+# --- MCP tools (in-process) ---
+fastmcp==3.3.1
+mcp==1.27.1
+psycopg[binary]==3.3.4
+psycopg-pool==3.3.1
+PyGithub==2.9.1
