@@ -1,0 +1,6 @@
+# ui-client runtime deps (mirrors root requirements-ui.txt; kept in the build context so the
+# sub-directory Docker build can COPY it). httpx is imported directly by orchestrator_client.
+streamlit==1.38.*
+streamlit-extras==0.4.*
+httpx-sse==0.4.*
+httpx==0.27.*

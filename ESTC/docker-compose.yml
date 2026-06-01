@@ -71,6 +71,22 @@ services:
   ui-client:
     build:
       context: ./estc/services/ui
+    container_name: ui-client
+    ports:
+      - "8501:8501"
+    environment:
+      # Reach the orchestrator by compose service name on the shared network.
+      ORCHESTRATOR_URL: http://orchestrator-app:8002
+    depends_on:
+      orchestrator-app:
+        condition: service_healthy
+    healthcheck:
+      # python:3.11-slim ships no curl — probe Streamlit's built-in health endpoint with urllib.
+      test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8501/_stcore/health').status==200 else 1)"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
     networks:
       - estc-net
 
