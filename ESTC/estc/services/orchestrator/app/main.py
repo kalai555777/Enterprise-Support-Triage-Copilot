@@ -25,12 +25,21 @@ from contextlib import asynccontextmanager
 from dataclasses import dataclass
 from typing import Any, AsyncIterator
 
+import httpx
 from fastapi import FastAPI, HTTPException
 from sse_starlette.sse import EventSourceResponse
 
-from estc.services.orchestrator.app.schemas import CreateTicketRequest, CreateTicketResponse
+from estc.services.orchestrator.app.schemas import (
+    ApproveResponse,
+    ClaimRequest,
+    CreateTicketRequest,
+    CreateTicketResponse,
+    ModifyDraftRequest,
+    TicketStateResponse,
+)
 from estc.services.orchestrator.graph.build import astream_ticket, graph
 from estc.services.orchestrator.graph.observability import configure_tracing
+from estc.shared.config import Settings
 from estc.shared.schemas.agent_state import AgentState
 
 
@@ -45,6 +54,7 @@ class TicketRecord:
     text: str
     company_id: str
     status: str = "pending"
+    approved: bool = False  # set by POST /tickets/{id}/approve (operator closed the ticket)
 
 
 # Process-lifetime registry, keyed by ticket_id. Non-durable by design (same scope as the
@@ -76,15 +86,50 @@ async def create_ticket(req: CreateTicketRequest) -> CreateTicketResponse:
     return CreateTicketResponse(ticket_id=ticket_id, status="pending")
 
 
-def _final_state(ticket_id: str) -> dict[str, Any]:
-    """Read the fully-merged terminal state from the checkpointer, keyed by thread_id.
+def _thread_cfg(ticket_id: str) -> dict[str, Any]:
+    """The LangGraph config that keys this ticket's checkpoint thread (thread_id == ticket_id)."""
+    return {"configurable": {"thread_id": ticket_id}}
+
+
+def _state(ticket_id: str) -> AgentState:
+    """Read the fully-merged state from the checkpointer as a typed ``AgentState``.
 
     Normalizes the Pydantic-state shape (LangGraph may surface an ``AgentState`` instance
     or a field-keyed dict) — the same guard ``run_ticket`` uses.
     """
-    values = graph.get_state({"configurable": {"thread_id": ticket_id}}).values
-    final = values if isinstance(values, AgentState) else AgentState(**values)
-    return final.model_dump()
+    values = graph.get_state(_thread_cfg(ticket_id)).values
+    return values if isinstance(values, AgentState) else AgentState(**values)
+
+
+def _final_state(ticket_id: str) -> dict[str, Any]:
+    """Terminal state as a JSON-serializable dict (used by the SSE ``done`` frame)."""
+    return _state(ticket_id).model_dump()
+
+
+def _require(ticket_id: str) -> TicketRecord:
+    """Return the registry record or raise 404 — shared by every per-ticket action endpoint."""
+    rec = _TICKETS.get(ticket_id)
+    if rec is None:
+        raise HTTPException(status_code=404, detail="unknown ticket_id")
+    return rec
+
+
+async def _classify_confidence(text: str) -> float:
+    """Re-score arbitrary text on the existing classifier API; returns its confidence.
+
+    Mirrors the ``classify`` node's call (``POST {CLASSIFIER_API_URL}/classify`` →
+    ``body["confidence"]``) so ``PATCH`` re-evaluates an edited draft with the *same* model
+    and no graph re-run. A classifier failure surfaces as ``502`` (the edit is not lost —
+    the handler only updates confidence after this returns).
+    """
+    base = Settings().CLASSIFIER_API_URL
+    try:
+        async with httpx.AsyncClient(base_url=base, timeout=5.0) as client:
+            resp = await client.post("/classify", json={"text": text})
+            resp.raise_for_status()
+            return float(resp.json()["confidence"])
+    except (httpx.HTTPError, KeyError, ValueError) as exc:
+        raise HTTPException(status_code=502, detail=f"classifier unavailable: {exc}") from exc
 
 
 def _sse(event: str, payload: dict[str, Any]) -> dict[str, str]:
@@ -127,3 +172,50 @@ async def stream_ticket(ticket_id: str) -> EventSourceResponse:
             yield _sse("error", {"event": "error", "ticket_id": ticket_id, "error": str(exc)})
 
     return EventSourceResponse(event_gen(), headers={"X-Accel-Buffering": "no"})
+
+
+# --- Operator actions (Phase 5) -----------------------------------------------------------
+# The Streamlit ops center calls these after a run completes. They edit the in-process record
+# and/or the ticket's MemorySaver *values* (via graph.update_state) — never the graph topology
+# or any node body (Phase 4.x FR-11 / Phase 5 FR-14 hold). Each 404s on an unknown ticket.
+
+
+@app.get("/tickets/{ticket_id}", response_model=TicketStateResponse)
+async def get_ticket(ticket_id: str) -> TicketStateResponse:
+    """Current status + merged ``AgentState`` — lets the UI re-hydrate after a page refresh."""
+    rec = _require(ticket_id)
+    return TicketStateResponse(ticket_id=ticket_id, status=rec.status, state=_final_state(ticket_id))
+
+
+@app.post("/tickets/{ticket_id}/approve", response_model=ApproveResponse)
+async def approve_ticket(ticket_id: str) -> ApproveResponse:
+    """Operator approves the draft: close the ticket (moves Active → Closed in the UI). 5.3.2."""
+    rec = _require(ticket_id)
+    rec.status = "closed"
+    rec.approved = True
+    return ApproveResponse(ticket_id=ticket_id, status="closed")
+
+
+@app.patch("/tickets/{ticket_id}", response_model=TicketStateResponse)
+async def modify_ticket(ticket_id: str, req: ModifyDraftRequest) -> TicketStateResponse:
+    """Operator overrides the draft: persist the new text and re-score confidence on it. 5.3.3.
+
+    Re-evaluation is a classifier re-score of the edited text (no graph re-run); ``requires_
+    escalation`` is read back as-is (the orchestrator does not recompute it here).
+    """
+    rec = _require(ticket_id)
+    confidence = await _classify_confidence(req.draft_text)
+    graph.update_state(
+        _thread_cfg(ticket_id),
+        {"agent_draft_response": req.draft_text, "confidence_score": confidence},
+    )
+    return TicketStateResponse(ticket_id=ticket_id, status=rec.status, state=_final_state(ticket_id))
+
+
+@app.post("/tickets/{ticket_id}/claim", response_model=TicketStateResponse)
+async def claim_ticket(ticket_id: str, req: ClaimRequest) -> TicketStateResponse:
+    """Operator claims an escalation: append a ``CLAIMED_BY:<operator>`` marker to the logs. 5.4.2."""
+    rec = _require(ticket_id)
+    logs = list(_state(ticket_id).execution_logs) + [f"CLAIMED_BY:{req.operator}"]
+    graph.update_state(_thread_cfg(ticket_id), {"execution_logs": logs})
+    return TicketStateResponse(ticket_id=ticket_id, status=rec.status, state=_final_state(ticket_id))
