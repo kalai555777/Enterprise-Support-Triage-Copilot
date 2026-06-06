@@ -25,6 +25,7 @@ async def feature_agent(state: AgentState) -> dict[str, object]:
         issue_text=state.raw_issue_text,
         context=context,
         facts={},
+        classifier_confidence=state.confidence_score,
     )
     synthetic_ticket_id = f"feature_ticket:{uuid4()}"
     return {

@@ -23,6 +23,7 @@ async def lockout_agent(state: AgentState) -> dict[str, object]:
         issue_text=state.raw_issue_text,
         context=[],
         facts=facts,
+        classifier_confidence=state.confidence_score,
     )
     return {
         "agent_draft_response": draft,

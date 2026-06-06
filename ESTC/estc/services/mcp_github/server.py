@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import asyncio
+import itertools
 import json
 import logging
 import os
@@ -15,6 +16,7 @@ if sys.platform == "win32":
 
 from fastmcp import FastMCP
 from github import Github
+from github.GithubException import GithubException
 from pydantic import BaseModel
 
 log = logging.getLogger("estc.mcp-github")
@@ -102,37 +104,54 @@ class LiveGitHubClient:
         q = f"repo:{repo} {query} state:{state}"
 
         def _call() -> list[dict]:
-            return [
-                {
-                    "number": i.number,
-                    "title": i.title,
-                    "url": i.html_url,
-                    "labels": [lab.name for lab in i.labels],
-                }
-                for i in self._gh.search_issues(query=q)[:50]
-            ]
+            # islice over the lazy PaginatedList: never indexes past the end, so an
+            # empty result set yields [] instead of raising IndexError. GithubException
+            # (rate limit, bad repo, auth) degrades to an empty list, not a crash.
+            try:
+                results = self._gh.search_issues(query=q)
+                return [
+                    {
+                        "number": i.number,
+                        "title": i.title,
+                        "url": i.html_url,
+                        "labels": [lab.name for lab in i.labels],
+                    }
+                    for i in itertools.islice(results, 50)
+                ]
+            except GithubException as exc:
+                log.warning("search_issues failed for %s: %s", repo, exc)
+                return []
 
         return await asyncio.to_thread(_call)
 
     async def list_recent_commits(self, repo: str, limit: int) -> list[dict]:
         def _call() -> list[dict]:
-            return [
-                {
-                    "sha": c.sha,
-                    "author": (
-                        c.author.login if c.author else c.commit.author.email
-                    ),
-                    "message": c.commit.message.split("\n", 1)[0],
-                }
-                for c in list(self._gh.get_repo(repo).get_commits()[:limit])
-            ]
+            try:
+                commits = self._gh.get_repo(repo).get_commits()
+                return [
+                    {
+                        "sha": c.sha,
+                        "author": (
+                            c.author.login if c.author else c.commit.author.email
+                        ),
+                        "message": c.commit.message.split("\n", 1)[0],
+                    }
+                    for c in itertools.islice(commits, limit)
+                ]
+            except GithubException as exc:
+                log.warning("list_recent_commits failed for %s: %s", repo, exc)
+                return []
 
         return await asyncio.to_thread(_call)
 
     async def get_deployment_log(self, repo: str) -> Optional[dict]:
         def _call() -> Optional[dict]:
-            runs = self._gh.get_repo(repo).get_workflow_runs()
-            for run in list(runs[:25]):
+            try:
+                runs = self._gh.get_repo(repo).get_workflow_runs()
+            except GithubException as exc:
+                log.warning("get_deployment_log failed for %s: %s", repo, exc)
+                return None
+            for run in itertools.islice(runs, 25):
                 if run.event == "deployment" or "deploy" in run.name.lower():
                     return {
                         "workflow": run.name,

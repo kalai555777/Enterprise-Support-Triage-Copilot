@@ -32,6 +32,7 @@ async def bug_agent(state: AgentState) -> dict[str, object]:
         issue_text=state.raw_issue_text,
         context=context,
         facts=facts,
+        classifier_confidence=state.confidence_score,
     )
     return {
         "retrieved_context": context,

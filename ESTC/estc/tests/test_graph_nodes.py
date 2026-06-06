@@ -194,3 +194,44 @@ async def test_execution_logs_accumulate(stub_postgres, monkeypatch):
 
     assert state.execution_logs == ["classified:billing", "billing_drafted", "AUTO_APPROVED"]
     assert len(state.execution_logs) == 3  # accumulated, not overwritten
+
+
+# --- Tier 2: confidence propagation & resilience ---------------------------
+def test_combine_confidence_policy():
+    from estc.services.orchestrator.graph.llm import combine_confidence
+
+    assert combine_confidence(0.98, has_context=True) == 0.98  # grounded: passes through
+    assert combine_confidence(0.85, has_context=False) == 0.5525  # ungrounded -> below 0.70
+    assert combine_confidence(0.50, has_context=True) == 0.50  # weak route survives grounding
+    assert combine_confidence(1.5, has_context=True) == 1.0  # clamped
+
+
+async def test_low_classifier_confidence_escalates(stub_postgres, monkeypatch):
+    # A grounded draft (context present) must NOT mask a low-confidence route: the
+    # classifier's 0.50 has to survive into the supervisor and trigger escalation.
+    from estc.services.orchestrator.rag.retriever import KBIndex, RetrievedChunk
+
+    async def _one_hit(*_args, **_kwargs):
+        return [RetrievedChunk(content="Refund policy.", source="b.md", index=KBIndex.BILLING, score=0.9)]
+
+    monkeypatch.setattr(billing_mod, "aretrieve", _one_hit)
+    state = _state(intent="billing", confidence_score=0.50)
+    state = _apply(state, await billing_agent(state))
+    assert state.confidence_score == 0.50
+    assert supervisor_review(state)["requires_escalation"] is True
+
+
+async def test_classify_degrades_on_outage():
+    # Classifier unreachable -> graceful escalation, not a graph crash.
+    def handler(_request: httpx.Request) -> httpx.Response:
+        raise httpx.ConnectError("classifier down")
+
+    client = httpx.AsyncClient(transport=httpx.MockTransport(handler), base_url="http://test")
+    try:
+        out = await classify(_state(), client=client)
+    finally:
+        await client.aclose()
+
+    assert out["intent"] is None  # router maps None -> billing_agent fallback
+    assert out["confidence_score"] == 0.0  # forces supervisor escalation downstream
+    assert any(log.startswith("classify_failed:") for log in out["execution_logs"])
