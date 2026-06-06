@@ -5,8 +5,6 @@ If that model is absent (fresh checkout that hasn't run train.py), the whole
 module is skipped rather than failing — CI trains the model before pytest.
 """
 
-import time
-
 import pytest
 from fastapi.testclient import TestClient
 

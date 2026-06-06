@@ -29,9 +29,9 @@ warnings.filterwarnings("ignore", category=DeprecationWarning)
 # Allow direct invocation (`python estc/tests/eval/ragas_eval.py`) — put repo root on path.
 sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
 
-from dotenv import load_dotenv
+from dotenv import load_dotenv  # noqa: E402  (import after sys.path setup above)
 
-from estc.tests.eval._ragas_compat import ensure_ragas_importable
+from estc.tests.eval._ragas_compat import ensure_ragas_importable  # noqa: E402
 
 _HERE = Path(__file__).parent
 FIXTURE = _HERE / "fixtures" / "eval_tickets.jsonl"
@@ -101,7 +101,9 @@ def _atomic_write_csv(rows: list[dict], metric_cols: list[str], means: dict[str,
         writer.writeheader()
         for row in rows:
             writer.writerow({k: row.get(k, "") for k in header})
-        writer.writerow({"ticket_id": "mean", "intent": "", **{m: round(means[m], 4) for m in metric_cols}})
+        writer.writerow(
+            {"ticket_id": "mean", "intent": "", **{m: round(means[m], 4) for m in metric_cols}}
+        )
     os.replace(tmp, RESULTS)
 
 
@@ -150,8 +152,13 @@ def main() -> int:
     # Merge per-row scores back onto the ticket id/intent for the CSV.
     rows = []
     for s, (_, scored) in zip(samples, df.iterrows()):
-        rows.append({"ticket_id": s["ticket_id"], "intent": s["intent"],
-                     **{m: float(scored[m]) for m in metric_cols}})
+        rows.append(
+            {
+                "ticket_id": s["ticket_id"],
+                "intent": s["intent"],
+                **{m: float(scored[m]) for m in metric_cols},
+            }
+        )
     means = {m: df[m].mean() for m in metric_cols}
     _atomic_write_csv(rows, metric_cols, means)
 

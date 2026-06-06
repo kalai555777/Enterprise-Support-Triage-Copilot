@@ -15,9 +15,7 @@ from estc.shared.schemas.agent_state import AgentState
 
 async def lockout_agent(state: AgentState) -> dict[str, object]:
     rec = await get_customer_by_id(state.company_id)
-    facts = (
-        {"company": rec.company_name, "account_status": rec.account_status} if rec else {}
-    )
+    facts = {"company": rec.company_name, "account_status": rec.account_status} if rec else {}
     draft, confidence = await draft_reply(
         intent="lockout",
         issue_text=state.raw_issue_text,

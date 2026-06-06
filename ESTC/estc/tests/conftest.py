@@ -1,4 +1,5 @@
 """Test config: load .env, set Windows-compatible event loop, override POSTGRES_HOST."""
+
 from __future__ import annotations
 
 import asyncio

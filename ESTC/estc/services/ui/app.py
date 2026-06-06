@@ -16,7 +16,8 @@ inside the container image (where the ui/ dir is the working directory).
 from __future__ import annotations
 
 try:  # qualified import wins under pytest/AppTest; flat in the container
-    from estc.services.ui import orchestrator_client as oc, state as ui_state
+    from estc.services.ui import orchestrator_client as oc
+    from estc.services.ui import state as ui_state
     from estc.services.ui.components import agent_map, draft_panel, escalation_queue
 except ModuleNotFoundError:  # pragma: no cover - container path
     import orchestrator_client as oc  # type: ignore[no-redefine]

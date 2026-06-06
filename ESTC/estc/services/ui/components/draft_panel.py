@@ -11,7 +11,8 @@ from __future__ import annotations
 import streamlit as st
 
 try:  # qualified import wins under pytest/AppTest; flat in the container
-    from estc.services.ui import orchestrator_client as oc, state as ui_state
+    from estc.services.ui import orchestrator_client as oc
+    from estc.services.ui import state as ui_state
 except ModuleNotFoundError:  # pragma: no cover - container path
     import orchestrator_client as oc  # type: ignore[no-redefine]
     import state as ui_state  # type: ignore[no-redefine]

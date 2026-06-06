@@ -1,4 +1,5 @@
 """Read-only FastMCP server fronting enterprise_customers (Phase 3.1, async)."""
+
 from __future__ import annotations
 
 import asyncio
@@ -10,8 +11,8 @@ if sys.platform == "win32":
     asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
 
 from fastmcp import FastMCP
-from pydantic import BaseModel
 from psycopg_pool import AsyncConnectionPool
+from pydantic import BaseModel
 
 SubscriptionTier = Literal["Enterprise", "Growth", "Free"]
 AccountStatus = Literal["Active", "Delinquent", "Locked"]
@@ -49,9 +50,7 @@ def _conninfo() -> str:
 async def _get_pool() -> AsyncConnectionPool:
     global _pool
     if _pool is None:
-        pool = AsyncConnectionPool(
-            conninfo=_conninfo(), min_size=1, max_size=4, open=False
-        )
+        pool = AsyncConnectionPool(conninfo=_conninfo(), min_size=1, max_size=4, open=False)
         await pool.open()
         _pool = pool
     return _pool

@@ -1,6 +1,7 @@
-import pandas as pd
-import random
 import os
+import random
+
+import pandas as pd
 
 # Set seed for reproducibility
 random.seed(42)
@@ -15,29 +16,29 @@ templates = {
         "I need a refund for my subscription.",
         "How do I update my billing info for company {company_id}?",
         "There is an unexpected charge of {amount} on my invoice.",
-        "Cancel my subscription immediately."
+        "Cancel my subscription immediately.",
     ],
     "bug": [
         "I am getting a {error_code} error on the {feature} page.",
         "The dashboard is completely broken.",
         "Every time I click save, it throws a {error_code} error.",
         "Company {company_id} is experiencing severe latency on {feature}.",
-        "Data is not loading on the {feature} widget."
+        "Data is not loading on the {feature} widget.",
     ],
     "feature": [
         "Please add a {feature} to the platform.",
         "It would be great if we could have a dark mode.",
         "Can you implement an integration with {integration}?",
         "I want to request a new {feature} for our team.",
-        "Is there a way to export data to {integration}?"
+        "Is there a way to export data to {integration}?",
     ],
     "lockout": [
         "I am locked out of my account.",
         "I cannot reset my password for company {company_id}.",
         "My 2FA is not working.",
         "Please unlock user {user_id}.",
-        "I forgot my password and the reset link is expired."
-    ]
+        "I forgot my password and the reset link is expired.",
+    ],
 }
 
 # Fillers for templates
@@ -59,7 +60,7 @@ for intent, phrases in templates.items():
             feature=random.choice(features),
             company_id=random.randint(1000, 9999),
             integration=random.choice(integrations),
-            user_id=random.randint(100, 999)
+            user_id=random.randint(100, 999),
         )
         data.append({"text": text, "label": intent})
 

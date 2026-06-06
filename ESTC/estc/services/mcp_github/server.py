@@ -1,4 +1,5 @@
 """Read-only FastMCP server fronting GitHub (Phase 3.2, async)."""
+
 from __future__ import annotations
 
 import asyncio
@@ -76,9 +77,7 @@ class MockGitHubClient:
     def __init__(self, fixture_path: Path):
         self._data = json.loads(Path(fixture_path).read_text(encoding="utf-8"))
 
-    async def search_issues(
-        self, repo: str, query: str, state: str
-    ) -> list[dict]:
+    async def search_issues(self, repo: str, query: str, state: str) -> list[dict]:
         bucket = self._data.get(repo, {}).get("issues", [])
         if state == "all":
             return list(bucket)
@@ -98,9 +97,7 @@ class LiveGitHubClient:
     def __init__(self, token: str):
         self._gh = Github(token)
 
-    async def search_issues(
-        self, repo: str, query: str, state: str
-    ) -> list[dict]:
+    async def search_issues(self, repo: str, query: str, state: str) -> list[dict]:
         q = f"repo:{repo} {query} state:{state}"
 
         def _call() -> list[dict]:
@@ -131,9 +128,7 @@ class LiveGitHubClient:
                 return [
                     {
                         "sha": c.sha,
-                        "author": (
-                            c.author.login if c.author else c.commit.author.email
-                        ),
+                        "author": (c.author.login if c.author else c.commit.author.email),
                         "message": c.commit.message.split("\n", 1)[0],
                     }
                     for c in itertools.islice(commits, limit)
@@ -188,9 +183,7 @@ def _get_client() -> MockGitHubClient | LiveGitHubClient:
 
 
 @register_readonly_tool(mcp)
-async def search_issues(
-    repo: str, query: str, state: str = "open"
-) -> list[IssueSummary]:
+async def search_issues(repo: str, query: str, state: str = "open") -> list[IssueSummary]:
     """Search GitHub issues in a repo. Returns up to 50 results."""
     _validate_repo(repo)
     rows = await _get_client().search_issues(repo, query, state)
@@ -206,17 +199,12 @@ async def search_issues(
 
 
 @register_readonly_tool(mcp)
-async def list_recent_commits(
-    repo: str, limit: int = 5
-) -> list[CommitSummary]:
+async def list_recent_commits(repo: str, limit: int = 5) -> list[CommitSummary]:
     """List up to `limit` (1..50) most recent commits on the default branch."""
     _validate_repo(repo)
     limit = max(1, min(50, limit))
     rows = await _get_client().list_recent_commits(repo, limit)
-    return [
-        CommitSummary(sha=r["sha"], author=r["author"], message=r["message"])
-        for r in rows
-    ]
+    return [CommitSummary(sha=r["sha"], author=r["author"], message=r["message"]) for r in rows]
 
 
 @register_readonly_tool(mcp)

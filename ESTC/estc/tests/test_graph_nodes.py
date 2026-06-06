@@ -17,8 +17,14 @@ import pytest
 from estc.services.mcp_postgres.server import CustomerRecord, SubscriptionStatus
 from estc.services.orchestrator.graph.nodes import (
     billing_agent as billing_mod,
+)
+from estc.services.orchestrator.graph.nodes import (
     bug_agent as bug_mod,
+)
+from estc.services.orchestrator.graph.nodes import (
     feature_agent as feature_mod,
+)
+from estc.services.orchestrator.graph.nodes import (
     lockout_agent as lockout_mod,
 )
 from estc.services.orchestrator.graph.nodes.billing_agent import billing_agent
@@ -212,7 +218,11 @@ async def test_low_classifier_confidence_escalates(stub_postgres, monkeypatch):
     from estc.services.orchestrator.rag.retriever import KBIndex, RetrievedChunk
 
     async def _one_hit(*_args, **_kwargs):
-        return [RetrievedChunk(content="Refund policy.", source="b.md", index=KBIndex.BILLING, score=0.9)]
+        return [
+            RetrievedChunk(
+                content="Refund policy.", source="b.md", index=KBIndex.BILLING, score=0.9
+            )
+        ]
 
     monkeypatch.setattr(billing_mod, "aretrieve", _one_hit)
     state = _state(intent="billing", confidence_score=0.50)

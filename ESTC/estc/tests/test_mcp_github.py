@@ -1,4 +1,5 @@
 """Phase 3.2.6 — in-process MCP client + direct-call coverage for GitHub MCP."""
+
 from __future__ import annotations
 
 import time

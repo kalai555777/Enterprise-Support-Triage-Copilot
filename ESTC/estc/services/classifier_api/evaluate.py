@@ -24,7 +24,9 @@ MODEL_DIR = Path(os.getenv("CLASSIFIER_MODEL_DIR", str(_HERE / "models" / "disti
 
 def main() -> None:
     tokenizer = AutoTokenizer.from_pretrained(str(MODEL_DIR), local_files_only=True)
-    model = AutoModelForSequenceClassification.from_pretrained(str(MODEL_DIR), local_files_only=True)
+    model = AutoModelForSequenceClassification.from_pretrained(
+        str(MODEL_DIR), local_files_only=True
+    )
     model.eval()
     with open(MODEL_DIR / "label_map.json", encoding="utf-8") as fh:
         id2label = {int(k): v for k, v in json.load(fh).items()}

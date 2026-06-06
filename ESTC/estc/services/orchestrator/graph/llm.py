@@ -41,6 +41,7 @@ def combine_confidence(classifier_confidence: float, has_context: bool) -> float
     clamped = max(0.0, min(1.0, classifier_confidence))
     return round(clamped * factor, 4)
 
+
 # Hugging Face hosted-inference model (design.md Component D names Llama-3-8B-Instruct).
 HF_REPO_ID = "meta-llama/Meta-Llama-3-8B-Instruct"
 

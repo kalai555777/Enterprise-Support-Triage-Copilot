@@ -39,8 +39,10 @@ _STATUSES = ("Active", "Delinquent", "Locked")
 
 def parse_customer_facts(state: dict[str, Any]) -> tuple[str, str]:
     """Best-effort (tier, account_status) from a ticket's draft + retrieved context."""
-    haystack = (state.get("agent_draft_response") or "") + " " + " ".join(
-        state.get("retrieved_context") or []
+    haystack = (
+        (state.get("agent_draft_response") or "")
+        + " "
+        + " ".join(state.get("retrieved_context") or [])
     )
     tier = next((t for t in _TIERS if t in haystack), "—")
     status = next((s for s in _STATUSES if s in haystack), "—")
