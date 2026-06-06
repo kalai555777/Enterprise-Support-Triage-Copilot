@@ -14,9 +14,12 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 
+from estc.shared.logging_setup import RequestIdMiddleware, configure_logging
+
 from .model_loader import get_classifier
 from .schemas import ClassifyRequest, ClassifyResponse
 
+configure_logging("classifier-api")
 logger = logging.getLogger("classifier_api")
 
 
@@ -34,6 +37,7 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(title="ESTC Intent Classifier API", lifespan=lifespan)
+app.add_middleware(RequestIdMiddleware)
 
 
 @app.get("/healthz")

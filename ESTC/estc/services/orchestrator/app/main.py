@@ -40,7 +40,10 @@ from estc.services.orchestrator.app.schemas import (
 from estc.services.orchestrator.graph.build import astream_ticket, graph
 from estc.services.orchestrator.graph.observability import configure_tracing
 from estc.shared.config import Settings
+from estc.shared.logging_setup import RequestIdMiddleware, configure_logging
 from estc.shared.schemas.agent_state import AgentState
+
+configure_logging("orchestrator")
 
 
 @dataclass
@@ -70,6 +73,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
 
 app = FastAPI(title="ESTC Orchestrator", lifespan=lifespan)
+app.add_middleware(RequestIdMiddleware)
 
 
 @app.get("/healthz")
@@ -155,7 +159,9 @@ async def stream_ticket(ticket_id: str) -> EventSourceResponse:
 
         # Re-open of a completed ticket: replay the terminal state, don't re-run the graph.
         if rec.status == "done":
-            yield _sse("done", {"event": "done", "ticket_id": ticket_id, "state": _final_state(ticket_id)})
+            yield _sse(
+                "done", {"event": "done", "ticket_id": ticket_id, "state": _final_state(ticket_id)}
+            )
             return
 
         rec.status = "running"
@@ -166,7 +172,9 @@ async def stream_ticket(ticket_id: str) -> EventSourceResponse:
                     {"event": "node", "node": node_name, "ticket_id": ticket_id, "update": update},
                 )
             rec.status = "done"
-            yield _sse("done", {"event": "done", "ticket_id": ticket_id, "state": _final_state(ticket_id)})
+            yield _sse(
+                "done", {"event": "done", "ticket_id": ticket_id, "state": _final_state(ticket_id)}
+            )
         except Exception as exc:  # a node raised (classifier 5xx, MCP/DB error) — surface in-band
             rec.status = "error"
             yield _sse("error", {"event": "error", "ticket_id": ticket_id, "error": str(exc)})
@@ -184,7 +192,9 @@ async def stream_ticket(ticket_id: str) -> EventSourceResponse:
 async def get_ticket(ticket_id: str) -> TicketStateResponse:
     """Current status + merged ``AgentState`` — lets the UI re-hydrate after a page refresh."""
     rec = _require(ticket_id)
-    return TicketStateResponse(ticket_id=ticket_id, status=rec.status, state=_final_state(ticket_id))
+    return TicketStateResponse(
+        ticket_id=ticket_id, status=rec.status, state=_final_state(ticket_id)
+    )
 
 
 @app.post("/tickets/{ticket_id}/approve", response_model=ApproveResponse)
@@ -209,13 +219,17 @@ async def modify_ticket(ticket_id: str, req: ModifyDraftRequest) -> TicketStateR
         _thread_cfg(ticket_id),
         {"agent_draft_response": req.draft_text, "confidence_score": confidence},
     )
-    return TicketStateResponse(ticket_id=ticket_id, status=rec.status, state=_final_state(ticket_id))
+    return TicketStateResponse(
+        ticket_id=ticket_id, status=rec.status, state=_final_state(ticket_id)
+    )
 
 
 @app.post("/tickets/{ticket_id}/claim", response_model=TicketStateResponse)
 async def claim_ticket(ticket_id: str, req: ClaimRequest) -> TicketStateResponse:
-    """Operator claims an escalation: append a ``CLAIMED_BY:<operator>`` marker to the logs. 5.4.2."""
+    """Operator claims an escalation: append a ``CLAIMED_BY:<operator>`` marker to logs (5.4.2)."""
     rec = _require(ticket_id)
     logs = list(_state(ticket_id).execution_logs) + [f"CLAIMED_BY:{req.operator}"]
     graph.update_state(_thread_cfg(ticket_id), {"execution_logs": logs})
-    return TicketStateResponse(ticket_id=ticket_id, status=rec.status, state=_final_state(ticket_id))
+    return TicketStateResponse(
+        ticket_id=ticket_id, status=rec.status, state=_final_state(ticket_id)
+    )

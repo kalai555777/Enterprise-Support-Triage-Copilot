@@ -13,6 +13,8 @@ services:
       dockerfile: estc/services/classifier_api/dockerfile
     ports:
       - "8001:8001"
+    # torch + DistilBERT weights resident in memory; bounded so a leak can't starve the host.
+    mem_limit: 1500m
     healthcheck:
       # python:3.11-slim ships no curl — probe /healthz with urllib (consistent w/ orchestrator).
       test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8001/healthz').status==200 else 1)"]
@@ -32,6 +34,8 @@ services:
     container_name: orchestrator-app
     ports:
       - "8002:8002"
+    # Headroom for the bge embedder + ChromaDB held in-process during RAG retrieval.
+    mem_limit: 2g
     environment:
       CLASSIFIER_API_URL: http://classifier-api:8001
       POSTGRES_HOST: postgres-db
@@ -76,6 +80,7 @@ services:
     container_name: ui-client
     ports:
       - "8501:8501"
+    mem_limit: 512m
     environment:
       # Reach the orchestrator by compose service name on the shared network.
       ORCHESTRATOR_URL: http://orchestrator-app:8002

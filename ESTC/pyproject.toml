@@ -3,10 +3,11 @@ line-length = 100
 
 [tool.ruff]
 line-length = 100
-select = ["E", "F", "I"]
-
-# ADD THIS LINE: Tells Ruff to skip your virtual environment files
+# Skip virtual-environment files
 exclude = ["Lib", "Scripts", "Include", "pyvenv.cfg", ".claude"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I"]
 
 [tool.mypy]
 ignore_missing_imports = true
