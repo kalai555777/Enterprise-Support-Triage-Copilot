@@ -28,10 +28,11 @@ COPY estc/services/classifier_api/requirements.txt ./requirements.txt
 RUN pip install --no-cache-dir --upgrade pip && \
     pip install --no-cache-dir -r requirements.txt
 COPY estc/services/classifier_api/app ./app
-# Vendor the dependency-free shared logging/request-id helper (imported as
-# estc.shared.logging_setup). /app is on sys.path, so the implicit namespace
-# package resolves it; keeps a single source of truth across services.
+# Vendor the dependency-free shared helpers (imported as estc.shared.*). /app is
+# on sys.path, so the implicit namespace package resolves them; keeps a single
+# source of truth across services.
 COPY estc/shared/logging_setup.py ./estc/shared/logging_setup.py
+COPY estc/shared/auth.py ./estc/shared/auth.py
 COPY --from=trainer /build/model ./models/distilbert_intent
 
 EXPOSE 8001

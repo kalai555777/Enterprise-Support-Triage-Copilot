@@ -38,9 +38,11 @@ async def classify(
     *,
     client: Optional[httpx.AsyncClient] = None,
 ) -> dict[str, object]:
-    base = Settings().CLASSIFIER_API_URL
+    settings = Settings()
+    base = settings.CLASSIFIER_API_URL
+    headers = {"X-API-Key": settings.ESTC_API_KEY} if settings.ESTC_API_KEY else None
     owns_client = client is None
-    client = client or httpx.AsyncClient(base_url=base, timeout=5.0)
+    client = client or httpx.AsyncClient(base_url=base, timeout=5.0, headers=headers)
     last_exc: Optional[Exception] = None
     try:
         for attempt in range(_MAX_ATTEMPTS):

@@ -14,6 +14,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 
+from estc.shared.auth import ApiKeyMiddleware
 from estc.shared.logging_setup import RequestIdMiddleware, configure_logging
 
 from .model_loader import get_classifier
@@ -37,6 +38,8 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(title="ESTC Intent Classifier API", lifespan=lifespan)
+# Added last = outermost: request-id wraps auth so even 401s carry X-Request-ID.
+app.add_middleware(ApiKeyMiddleware)
 app.add_middleware(RequestIdMiddleware)
 
 

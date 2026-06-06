@@ -25,9 +25,20 @@ BASE = os.environ.get("ORCHESTRATOR_URL", "http://localhost:8002")
 _TIMEOUT = httpx.Timeout(5.0, read=30.0)
 
 
+def _auth_headers() -> dict[str, str]:
+    """Attach the shared-secret API key when ESTC_API_KEY is configured (else no-op)."""
+    key = os.environ.get("ESTC_API_KEY", "").strip()
+    return {"X-API-Key": key} if key else {}
+
+
 def create_ticket(text: str, company_id: str | None) -> dict[str, Any]:
     """``POST /tickets`` — register a ticket, return ``{ticket_id, status}``."""
-    r = httpx.post(f"{BASE}/tickets", json={"text": text, "company_id": company_id}, timeout=10.0)
+    r = httpx.post(
+        f"{BASE}/tickets",
+        json={"text": text, "company_id": company_id},
+        headers=_auth_headers(),
+        timeout=10.0,
+    )
     r.raise_for_status()
     return r.json()
 
@@ -39,7 +50,7 @@ def stream_ticket(ticket_id: str, read_timeout: float = 30.0) -> Iterator[dict[s
     ``open → node(classify) → node(worker) → node(supervisor_review) → done`` (≥ 4 frames).
     """
     timeout = httpx.Timeout(5.0, read=read_timeout)
-    with httpx.Client(timeout=timeout) as client:
+    with httpx.Client(timeout=timeout, headers=_auth_headers()) as client:
         with connect_sse(client, "GET", f"{BASE}/tickets/{ticket_id}/stream") as event_source:
             for sse in event_source.iter_sse():
                 payload = json.loads(sse.data) if sse.data else {}
@@ -48,27 +59,37 @@ def stream_ticket(ticket_id: str, read_timeout: float = 30.0) -> Iterator[dict[s
 
 def get_state(ticket_id: str) -> dict[str, Any]:
     """``GET /tickets/{id}`` — current ``{ticket_id, status, state}`` for UI re-hydration."""
-    r = httpx.get(f"{BASE}/tickets/{ticket_id}", timeout=10.0)
+    r = httpx.get(f"{BASE}/tickets/{ticket_id}", headers=_auth_headers(), timeout=10.0)
     r.raise_for_status()
     return r.json()
 
 
 def approve(ticket_id: str) -> dict[str, Any]:
     """``POST /tickets/{id}/approve`` — close the ticket; returns ``{ticket_id, status}``."""
-    r = httpx.post(f"{BASE}/tickets/{ticket_id}/approve", timeout=10.0)
+    r = httpx.post(f"{BASE}/tickets/{ticket_id}/approve", headers=_auth_headers(), timeout=10.0)
     r.raise_for_status()
     return r.json()
 
 
 def modify(ticket_id: str, draft_text: str) -> dict[str, Any]:
     """``PATCH /tickets/{id}`` — persist the edited draft, return the re-scored state."""
-    r = httpx.patch(f"{BASE}/tickets/{ticket_id}", json={"draft_text": draft_text}, timeout=10.0)
+    r = httpx.patch(
+        f"{BASE}/tickets/{ticket_id}",
+        json={"draft_text": draft_text},
+        headers=_auth_headers(),
+        timeout=10.0,
+    )
     r.raise_for_status()
     return r.json()
 
 
 def claim(ticket_id: str, operator: str) -> dict[str, Any]:
     """``POST /tickets/{id}/claim`` — append ``CLAIMED_BY:<operator>`` to the logs."""
-    r = httpx.post(f"{BASE}/tickets/{ticket_id}/claim", json={"operator": operator}, timeout=10.0)
+    r = httpx.post(
+        f"{BASE}/tickets/{ticket_id}/claim",
+        json={"operator": operator},
+        headers=_auth_headers(),
+        timeout=10.0,
+    )
     r.raise_for_status()
     return r.json()

@@ -74,3 +74,17 @@ def test_latency_p99():
     p95 = samples[int(0.95 * len(samples)) - 1]
     assert median < 50, f"median latency {median:.1f}ms exceeds 50ms target (samples={samples})"
     assert p95 < 150, f"p95 latency {p95:.1f}ms — gross regression (samples={samples})"
+
+
+def test_api_key_enforced_when_set(monkeypatch):
+    monkeypatch.setenv("ESTC_API_KEY", "secret")
+    assert client.get("/healthz").status_code == 200  # exempt
+    assert client.post("/classify", json={"text": "hi"}).status_code == 401  # missing
+    assert (
+        client.post("/classify", json={"text": "hi"}, headers={"X-API-Key": "nope"}).status_code
+        == 401  # wrong
+    )
+    ok = client.post(
+        "/classify", json={"text": "I am getting a 500 error"}, headers={"X-API-Key": "secret"}
+    )
+    assert ok.status_code == 200

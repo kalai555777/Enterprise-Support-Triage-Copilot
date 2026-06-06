@@ -39,8 +39,10 @@ from estc.services.orchestrator.app.schemas import (
 )
 from estc.services.orchestrator.graph.build import astream_ticket, graph
 from estc.services.orchestrator.graph.observability import configure_tracing
+from estc.shared.auth import ApiKeyMiddleware
 from estc.shared.config import Settings
 from estc.shared.logging_setup import RequestIdMiddleware, configure_logging
+from estc.shared.ratelimit import RateLimitMiddleware
 from estc.shared.schemas.agent_state import AgentState
 
 configure_logging("orchestrator")
@@ -73,6 +75,10 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
 
 app = FastAPI(title="ESTC Orchestrator", lifespan=lifespan)
+# Added last = outermost. Flow: request-id -> rate-limit -> api-key -> app, so
+# throttling happens before auth work and every response carries X-Request-ID.
+app.add_middleware(ApiKeyMiddleware)
+app.add_middleware(RateLimitMiddleware)
 app.add_middleware(RequestIdMiddleware)
 
 
@@ -126,9 +132,11 @@ async def _classify_confidence(text: str) -> float:
     and no graph re-run. A classifier failure surfaces as ``502`` (the edit is not lost —
     the handler only updates confidence after this returns).
     """
-    base = Settings().CLASSIFIER_API_URL
+    settings = Settings()
+    base = settings.CLASSIFIER_API_URL
+    headers = {"X-API-Key": settings.ESTC_API_KEY} if settings.ESTC_API_KEY else None
     try:
-        async with httpx.AsyncClient(base_url=base, timeout=5.0) as client:
+        async with httpx.AsyncClient(base_url=base, timeout=5.0, headers=headers) as client:
             resp = await client.post("/classify", json={"text": text})
             resp.raise_for_status()
             return float(resp.json()["confidence"])

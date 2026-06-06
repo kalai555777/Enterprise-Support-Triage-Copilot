@@ -160,3 +160,19 @@ def test_request_id_present_on_sse_stream(offline_bug_run):
     assert resp.status_code == 200
     assert resp.headers.get("x-request-id") == "sse-1"
     assert len(_parse_sse(resp.text)) >= 4
+
+
+# --- Tier 3: API key + rate limiting ---------------------------------------
+def test_api_key_enforced_when_set(monkeypatch):
+    monkeypatch.setenv("ESTC_API_KEY", "secret")
+    assert client.get("/healthz").status_code == 200  # exempt
+    assert client.post("/tickets", json={"text": "x"}).status_code == 401  # missing key
+    ok = client.post("/tickets", json={"text": "x"}, headers={"X-API-Key": "secret"})
+    assert ok.status_code == 201
+
+
+def test_rate_limit_returns_429(monkeypatch):
+    monkeypatch.setenv("ESTC_RATE_LIMIT_PER_MIN", "3")
+    codes = [client.post("/tickets", json={"text": "x"}).status_code for _ in range(6)]
+    assert 201 in codes and 429 in codes, codes
+    assert client.get("/healthz").status_code == 200  # exempt from throttling
