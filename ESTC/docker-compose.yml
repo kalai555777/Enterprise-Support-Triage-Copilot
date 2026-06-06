@@ -8,7 +8,9 @@ volumes:
 services:
   classifier-api:
     build:
-      context: ./estc/services/classifier_api
+      # Repo-root context so the trainer stage can reach estc/data/training.
+      context: .
+      dockerfile: estc/services/classifier_api/dockerfile
     ports:
       - "8001:8001"
     healthcheck:

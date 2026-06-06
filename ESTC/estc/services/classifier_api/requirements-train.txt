@@ -1,0 +1,5 @@
+# Training-only deps (used by train.py / evaluate.py and the build stage).
+# Kept out of the runtime image.
+-r requirements.txt
+pandas==2.2.*
+scikit-learn==1.4.*
