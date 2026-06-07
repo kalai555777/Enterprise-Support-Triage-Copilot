@@ -92,6 +92,18 @@ pwsh ./scripts/eval.ps1      # or: make eval
 Computes Faithfulness, Answer Relevance, and Context Recall over the 20-ticket gold
 fixture. Requires a judge-LLM key and a running orchestrator; skips cleanly otherwise.
 
+## Production hardening
+
+- **Durable state** — set `ESTC_PERSIST_POSTGRES=true` to checkpoint the LangGraph
+  state and the ticket registry in Postgres (`AsyncPostgresSaver` + a `tickets` table),
+  so tickets survive an orchestrator restart. Off by default → in-memory (non-durable).
+- **Inter-service auth** — set `ESTC_API_KEY` to require an `X-API-Key` header on the
+  classifier and orchestrator (callers send it automatically). Empty = disabled.
+- **Rate limiting** — set `ESTC_RATE_LIMIT_PER_MIN` (>0) to throttle the orchestrator's
+  public endpoints per client IP. `0` = disabled.
+- **Request tracing** — every response carries an `X-Request-ID` (minted if absent),
+  stamped on all log lines for cross-service correlation.
+
 ## Configuration
 
 All settings load from `.env` (see `.env.example`) via `estc/shared/config.py`.
