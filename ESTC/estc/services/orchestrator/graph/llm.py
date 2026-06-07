@@ -16,9 +16,12 @@ the ``#<n>`` issue refs for bug) hold on the template, cloud, and HF paths alike
 
 from __future__ import annotations
 
+import logging
 import os
 from functools import lru_cache
 from typing import Any, Optional
+
+logger = logging.getLogger("estc.orchestrator.llm")
 
 # Final confidence = classifier routing confidence x grounding factor.
 # A draft built with NO retrieved context is less trustworthy, so it is multiplied
@@ -42,31 +45,40 @@ def combine_confidence(classifier_confidence: float, has_context: bool) -> float
     return round(clamped * factor, 4)
 
 
-# Hugging Face hosted-inference model (design.md Component D names Llama-3-8B-Instruct).
-HF_REPO_ID = "meta-llama/Meta-Llama-3-8B-Instruct"
+# Hugging Face hosted-inference model. Configurable via env so a different free
+# model can be tried without a rebuild (design.md names Llama-3-8B-Instruct).
+HF_REPO_ID = os.environ.get("HF_REPO_ID", "meta-llama/Meta-Llama-3-8B-Instruct")
 
 
 @lru_cache(maxsize=1)
 def _chat_model() -> Optional[Any]:
-    """Build a LangChain ChatModel once, or return ``None`` for the template path."""
-    if os.environ.get("ANTHROPIC_API_KEY"):
-        from langchain_anthropic import ChatAnthropic
+    """Build a LangChain ChatModel once, or return ``None`` for the template path.
 
-        return ChatAnthropic(model="claude-sonnet-4-6", temperature=0.2)
-    if os.environ.get("OPENAI_API_KEY"):
-        from langchain_openai import ChatOpenAI
+    Defensive: a missing provider package or a construction error degrades to
+    ``None`` (template path) instead of crashing the graph — so setting a provider
+    key can never take the orchestrator down, regardless of which extras are installed.
+    """
+    try:
+        if os.environ.get("ANTHROPIC_API_KEY"):
+            from langchain_anthropic import ChatAnthropic
 
-        return ChatOpenAI(model="gpt-4o-mini", temperature=0.2)
-    if os.environ.get("HF_TOKEN"):
-        from langchain_huggingface import ChatHuggingFace, HuggingFaceEndpoint
+            return ChatAnthropic(model="claude-sonnet-4-6", temperature=0.2)
+        if os.environ.get("OPENAI_API_KEY"):
+            from langchain_openai import ChatOpenAI
 
-        endpoint = HuggingFaceEndpoint(
-            repo_id=HF_REPO_ID,
-            task="text-generation",
-            huggingfacehub_api_token=os.environ["HF_TOKEN"],
-            temperature=0.2,
-        )
-        return ChatHuggingFace(llm=endpoint)
+            return ChatOpenAI(model="gpt-4o-mini", temperature=0.2)
+        if os.environ.get("HF_TOKEN"):
+            from langchain_huggingface import ChatHuggingFace, HuggingFaceEndpoint
+
+            endpoint = HuggingFaceEndpoint(
+                repo_id=HF_REPO_ID,
+                task="text-generation",
+                huggingfacehub_api_token=os.environ["HF_TOKEN"],
+                temperature=0.2,
+            )
+            return ChatHuggingFace(llm=endpoint)
+    except Exception:  # noqa: BLE001 - any provider failure -> template fallback
+        logger.exception("LLM provider init failed; falling back to deterministic template")
     return None
 
 
@@ -117,7 +129,13 @@ async def draft_reply(
         return _template_reply(intent, facts, context), confidence
 
     prompt = _build_prompt(intent, issue_text, context, facts)
-    response = await model.ainvoke(prompt)
+    try:
+        response = await model.ainvoke(prompt)
+    except (
+        Exception
+    ):  # noqa: BLE001 - HF/cloud runtime failure (rate limit, model not served, timeout)
+        logger.exception("LLM draft generation failed; falling back to deterministic template")
+        return _template_reply(intent, facts, context), confidence
     text = getattr(response, "content", str(response))
     if isinstance(text, list):  # some providers return a list of content blocks
         text = " ".join(str(part) for part in text)

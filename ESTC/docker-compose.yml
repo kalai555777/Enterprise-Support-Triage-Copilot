@@ -54,6 +54,11 @@ services:
       GITHUB_MOCK_PATH: /app/estc/tests/fixtures/github_mock.json
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      # Draft LLM: with no Anthropic/OpenAI key, draft_reply uses the HF endpoint
+      # (langchain-huggingface) when HF_TOKEN is set; any HF failure falls back to
+      # the deterministic template. HF_REPO_ID is overridable to try other free models.
+      HF_TOKEN: ${HF_TOKEN:-}
+      HF_REPO_ID: ${HF_REPO_ID:-meta-llama/Meta-Llama-3-8B-Instruct}
       LANGSMITH_API_KEY: ${LANGSMITH_API_KEY:-}
       LANGSMITH_TRACING: ${LANGSMITH_TRACING:-false}
       LANGSMITH_PROJECT: ${LANGSMITH_PROJECT:-estc-dev}
