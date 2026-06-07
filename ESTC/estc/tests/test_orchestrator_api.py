@@ -75,9 +75,9 @@ def _parse_sse(text: str) -> list[tuple[str, dict]]:
     event = "message"
     for line in text.splitlines():
         if line.startswith("event:"):
-            event = line[len("event:"):].strip()
+            event = line[len("event:") :].strip()
         elif line.startswith("data:"):
-            events.append((event, json.loads(line[len("data:"):].strip())))
+            events.append((event, json.loads(line[len("data:") :].strip())))
         elif line == "":
             event = "message"
     return events
@@ -137,3 +137,42 @@ def test_stream_node_order_and_done(offline_bug_run):
 # --- AC-T6 -----------------------------------------------------------------
 def test_stream_unknown_ticket_404():
     assert client.get("/tickets/does-not-exist/stream").status_code == 404
+
+
+# --- Tier 3: request-id propagation ----------------------------------------
+def test_request_id_minted_and_echoed():
+    r = client.get("/healthz")
+    assert r.headers.get("x-request-id")  # minted when absent
+
+
+def test_request_id_passthrough():
+    r = client.get("/healthz", headers={"X-Request-ID": "trace-xyz"})
+    assert r.headers.get("x-request-id") == "trace-xyz"
+
+
+def test_request_id_present_on_sse_stream(offline_bug_run):
+    # The pure-ASGI middleware must not break streaming: the SSE body still flows
+    # and the response carries the request id.
+    ticket_id = client.post("/tickets", json={"text": _CANONICAL, "company_id": "9422"}).json()[
+        "ticket_id"
+    ]
+    resp = client.get(f"/tickets/{ticket_id}/stream", headers={"X-Request-ID": "sse-1"})
+    assert resp.status_code == 200
+    assert resp.headers.get("x-request-id") == "sse-1"
+    assert len(_parse_sse(resp.text)) >= 4
+
+
+# --- Tier 3: API key + rate limiting ---------------------------------------
+def test_api_key_enforced_when_set(monkeypatch):
+    monkeypatch.setenv("ESTC_API_KEY", "secret")
+    assert client.get("/healthz").status_code == 200  # exempt
+    assert client.post("/tickets", json={"text": "x"}).status_code == 401  # missing key
+    ok = client.post("/tickets", json={"text": "x"}, headers={"X-API-Key": "secret"})
+    assert ok.status_code == 201
+
+
+def test_rate_limit_returns_429(monkeypatch):
+    monkeypatch.setenv("ESTC_RATE_LIMIT_PER_MIN", "3")
+    codes = [client.post("/tickets", json={"text": "x"}).status_code for _ in range(6)]
+    assert 201 in codes and 429 in codes, codes
+    assert client.get("/healthz").status_code == 200  # exempt from throttling

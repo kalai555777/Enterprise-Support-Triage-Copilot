@@ -29,8 +29,10 @@ dist/
 .DS_Store
 Thumbs.db
 
-# ML artifacts
+# ML artifacts (trained model is reproduced from CSVs by train.py / the Docker build)
 chroma_db/
 models/*.bin
 *.pt
+*.safetensors
+estc/services/classifier_api/models/
 .langsmith/

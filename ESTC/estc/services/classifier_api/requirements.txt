@@ -1,3 +1,11 @@
-fastapi>=0.100.0
-uvicorn>=0.22.0
-pydantic>=2.0.0
+# Runtime deps for the classifier service. Training-only deps (pandas,
+# scikit-learn) live in requirements-train.txt and are not shipped in the
+# runtime image. CPU-only torch keeps the image small.
+fastapi==0.115.*
+uvicorn[standard]==0.30.*
+pydantic==2.9.*
+# numpy must stay <2: torch 2.2 / transformers 4.38 were built against numpy 1.x,
+# and a fresh install otherwise pulls numpy 2.x ("RuntimeError: Numpy is not available").
+numpy==1.26.*
+torch==2.2.*
+transformers==4.38.*

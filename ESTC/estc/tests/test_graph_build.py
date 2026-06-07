@@ -18,7 +18,6 @@ from types import SimpleNamespace
 import httpx
 import pytest
 
-from estc.services.orchestrator.graph import build
 from estc.services.orchestrator.graph.build import astream_ticket, graph, run_ticket
 from estc.services.orchestrator.graph.nodes import bug_agent as bug_mod
 from estc.services.orchestrator.graph.nodes import classify as classify_mod
@@ -73,12 +72,12 @@ def test_mermaid_shows_six_nodes():
 # --- AC-T2 / AC-B2 ---------------------------------------------------------
 def test_edges_route_through_supervisor():
     pairs = {(e.source, e.target) for e in graph.get_graph().edges}
-    assert ("__start__", "classify") in pairs                      # entry
+    assert ("__start__", "classify") in pairs  # entry
     for worker in _WORKERS:
-        assert ("classify", worker) in pairs                       # conditional fan-out
-        assert (worker, "supervisor_review") in pairs              # fan-in to the gate
-        assert (worker, "__end__") not in pairs                    # never bypass supervisor
-    assert ("supervisor_review", "__end__") in pairs               # terminal
+        assert ("classify", worker) in pairs  # conditional fan-out
+        assert (worker, "supervisor_review") in pairs  # fan-in to the gate
+        assert (worker, "__end__") not in pairs  # never bypass supervisor
+    assert ("supervisor_review", "__end__") in pairs  # terminal
 
 
 # --- AC-T3 -----------------------------------------------------------------

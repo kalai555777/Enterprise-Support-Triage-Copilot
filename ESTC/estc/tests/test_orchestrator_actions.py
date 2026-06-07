@@ -12,7 +12,6 @@ orchestrator's classifier call to an ``httpx.MockTransport`` — no classifier/P
 
 from __future__ import annotations
 
-import json
 from types import SimpleNamespace
 
 import httpx
@@ -81,7 +80,7 @@ def _drive(text: str = _CANONICAL, company_id: str | None = "9422") -> str:
 
 
 def _patch_classifier(monkeypatch, *, status: int = 200, confidence: float = 0.42):
-    """Point the orchestrator's module-level httpx at a MockTransport for ``_classify_confidence``."""
+    """Point the orchestrator httpx at a MockTransport for ``_classify_confidence``."""
 
     def _handler(_request: httpx.Request) -> httpx.Response:
         if status != 200:

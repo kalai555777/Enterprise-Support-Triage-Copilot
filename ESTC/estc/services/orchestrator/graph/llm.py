@@ -16,40 +16,70 @@ the ``#<n>`` issue refs for bug) hold on the template, cloud, and HF paths alike
 
 from __future__ import annotations
 
+import logging
 import os
 from functools import lru_cache
 from typing import Any, Optional
 
-# Grounding penalty: a draft built with no retrieved context is less trustworthy,
-# so it gets a lower confidence and naturally trends toward supervisor escalation.
-CONFIDENCE_FLOOR_NO_CONTEXT = 0.55
-CONFIDENCE_WITH_CONTEXT = 0.85
+logger = logging.getLogger("estc.orchestrator.llm")
 
-# Hugging Face hosted-inference model (design.md Component D names Llama-3-8B-Instruct).
-HF_REPO_ID = "meta-llama/Meta-Llama-3-8B-Instruct"
+# Final confidence = classifier routing confidence x grounding factor.
+# A draft built with NO retrieved context is less trustworthy, so it is multiplied
+# by NO_CONTEXT_PENALTY and naturally trends toward supervisor escalation. The
+# anchor is chosen so a confident route (~0.85) with no context lands ~0.55, below
+# the 0.70 supervisor threshold (preserving the previous escalation behaviour),
+# while a *low-confidence* classification now also propagates and escalates instead
+# of being overwritten by a fixed grounding score.
+NO_CONTEXT_PENALTY = 0.65
+
+
+def combine_confidence(classifier_confidence: float, has_context: bool) -> float:
+    """Fold the classifier's routing confidence together with draft grounding.
+
+    Clamped to [0, 1]. ``has_context=False`` applies ``NO_CONTEXT_PENALTY`` so
+    ungrounded drafts escalate; a low ``classifier_confidence`` propagates through
+    regardless of grounding, which is what makes the real classifier signal matter.
+    """
+    factor = 1.0 if has_context else NO_CONTEXT_PENALTY
+    clamped = max(0.0, min(1.0, classifier_confidence))
+    return round(clamped * factor, 4)
+
+
+# Hugging Face hosted-inference model. Configurable via env so a different free
+# model can be tried without a rebuild. Defaults to the 3B Llama for low latency
+# on free serverless (the 8B is much slower on cold start).
+HF_REPO_ID = os.environ.get("HF_REPO_ID", "meta-llama/Llama-3.2-3B-Instruct")
 
 
 @lru_cache(maxsize=1)
 def _chat_model() -> Optional[Any]:
-    """Build a LangChain ChatModel once, or return ``None`` for the template path."""
-    if os.environ.get("ANTHROPIC_API_KEY"):
-        from langchain_anthropic import ChatAnthropic
+    """Build a LangChain ChatModel once, or return ``None`` for the template path.
 
-        return ChatAnthropic(model="claude-sonnet-4-6", temperature=0.2)
-    if os.environ.get("OPENAI_API_KEY"):
-        from langchain_openai import ChatOpenAI
+    Defensive: a missing provider package or a construction error degrades to
+    ``None`` (template path) instead of crashing the graph — so setting a provider
+    key can never take the orchestrator down, regardless of which extras are installed.
+    """
+    try:
+        if os.environ.get("ANTHROPIC_API_KEY"):
+            from langchain_anthropic import ChatAnthropic
 
-        return ChatOpenAI(model="gpt-4o-mini", temperature=0.2)
-    if os.environ.get("HF_TOKEN"):
-        from langchain_huggingface import ChatHuggingFace, HuggingFaceEndpoint
+            return ChatAnthropic(model="claude-sonnet-4-6", temperature=0.2)
+        if os.environ.get("OPENAI_API_KEY"):
+            from langchain_openai import ChatOpenAI
 
-        endpoint = HuggingFaceEndpoint(
-            repo_id=HF_REPO_ID,
-            task="text-generation",
-            huggingfacehub_api_token=os.environ["HF_TOKEN"],
-            temperature=0.2,
-        )
-        return ChatHuggingFace(llm=endpoint)
+            return ChatOpenAI(model="gpt-4o-mini", temperature=0.2)
+        if os.environ.get("HF_TOKEN"):
+            from langchain_huggingface import ChatHuggingFace, HuggingFaceEndpoint
+
+            endpoint = HuggingFaceEndpoint(
+                repo_id=HF_REPO_ID,
+                task="text-generation",
+                huggingfacehub_api_token=os.environ["HF_TOKEN"],
+                temperature=0.2,
+            )
+            return ChatHuggingFace(llm=endpoint)
+    except Exception:  # noqa: BLE001 - any provider failure -> template fallback
+        logger.exception("LLM provider init failed; falling back to deterministic template")
     return None
 
 
@@ -84,20 +114,29 @@ async def draft_reply(
     issue_text: str,
     context: list[str],
     facts: dict[str, str],
+    classifier_confidence: float = 1.0,
 ) -> tuple[str, float]:
     """Return ``(draft_text, confidence)``.
 
-    Confidence is ``CONFIDENCE_WITH_CONTEXT`` when at least one context chunk was
-    retrieved, else ``CONFIDENCE_FLOOR_NO_CONTEXT``. The model path is used only when
-    an API key is present; otherwise the deterministic template is returned.
+    ``confidence`` folds the classifier's routing confidence together with draft
+    grounding via :func:`combine_confidence`: the score is penalised when no context
+    was retrieved, and a low ``classifier_confidence`` propagates through to drive
+    supervisor escalation. The model path is used only when an API key is present;
+    otherwise the deterministic template is returned.
     """
-    confidence = CONFIDENCE_WITH_CONTEXT if context else CONFIDENCE_FLOOR_NO_CONTEXT
+    confidence = combine_confidence(classifier_confidence, bool(context))
     model = _chat_model()
     if model is None:
         return _template_reply(intent, facts, context), confidence
 
     prompt = _build_prompt(intent, issue_text, context, facts)
-    response = await model.ainvoke(prompt)
+    try:
+        response = await model.ainvoke(prompt)
+    except (
+        Exception
+    ):  # noqa: BLE001 - HF/cloud runtime failure (rate limit, model not served, timeout)
+        logger.exception("LLM draft generation failed; falling back to deterministic template")
+        return _template_reply(intent, facts, context), confidence
     text = getattr(response, "content", str(response))
     if isinstance(text, list):  # some providers return a list of content blocks
         text = " ".join(str(part) for part in text)

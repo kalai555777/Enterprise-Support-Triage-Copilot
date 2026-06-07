@@ -8,9 +8,16 @@ volumes:
 services:
   classifier-api:
     build:
-      context: ./estc/services/classifier_api
+      # Repo-root context so the trainer stage can reach estc/data/training.
+      context: .
+      dockerfile: estc/services/classifier_api/dockerfile
     ports:
       - "8001:8001"
+    # torch + DistilBERT weights resident in memory; bounded so a leak can't starve the host.
+    mem_limit: 1500m
+    environment:
+      # Shared-secret auth (empty = disabled). Must match the orchestrator's value.
+      ESTC_API_KEY: ${ESTC_API_KEY:-}
     healthcheck:
       # python:3.11-slim ships no curl — probe /healthz with urllib (consistent w/ orchestrator).
       test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8001/healthz').status==200 else 1)"]
@@ -30,6 +37,8 @@ services:
     container_name: orchestrator-app
     ports:
       - "8002:8002"
+    # Headroom for the bge embedder + ChromaDB held in-process during RAG retrieval.
+    mem_limit: 2g
     environment:
       CLASSIFIER_API_URL: http://classifier-api:8001
       POSTGRES_HOST: postgres-db
@@ -45,9 +54,22 @@ services:
       GITHUB_MOCK_PATH: /app/estc/tests/fixtures/github_mock.json
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      # Draft LLM: with no Anthropic/OpenAI key, draft_reply uses the HF endpoint
+      # (langchain-huggingface) when HF_TOKEN is set; any HF failure falls back to
+      # the deterministic template. HF_REPO_ID is overridable to try other free models.
+      HF_TOKEN: ${HF_TOKEN:-}
+      # Default to the 3B Llama (much faster than 8B on free serverless); override in .env.
+      HF_REPO_ID: ${HF_REPO_ID:-meta-llama/Llama-3.2-3B-Instruct}
       LANGSMITH_API_KEY: ${LANGSMITH_API_KEY:-}
       LANGSMITH_TRACING: ${LANGSMITH_TRACING:-false}
       LANGSMITH_PROJECT: ${LANGSMITH_PROJECT:-estc-dev}
+      # Shared-secret auth (empty = disabled) + per-IP rate limit on public endpoints.
+      ESTC_API_KEY: ${ESTC_API_KEY:-}
+      ESTC_RATE_LIMIT_PER_MIN: ${ESTC_RATE_LIMIT_PER_MIN:-0}
+      # Durable LangGraph checkpoints in the shared Postgres (off => in-memory MemorySaver).
+      ESTC_PERSIST_POSTGRES: ${ESTC_PERSIST_POSTGRES:-false}
+      POSTGRES_USER: ${POSTGRES_USER:-estc}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-estc}
     volumes:
       # Persisted RAG store (built by rag/ingest.py); CHROMA_PATH is the relative ./chroma_db.
       # Mounted read-WRITE: chromadb >=1.x opens the SQLite store in write mode (WAL/journal)
@@ -74,9 +96,12 @@ services:
     container_name: ui-client
     ports:
       - "8501:8501"
+    mem_limit: 512m
     environment:
       # Reach the orchestrator by compose service name on the shared network.
       ORCHESTRATOR_URL: http://orchestrator-app:8002
+      # Shared-secret auth (empty = disabled). Must match the orchestrator's value.
+      ESTC_API_KEY: ${ESTC_API_KEY:-}
     depends_on:
       orchestrator-app:
         condition: service_healthy

@@ -1,0 +1,21 @@
+# Keep the repo-root build context lean (orchestrator + classifier build from here).
+.git
+.github
+.venv
+venv
+env
+**/__pycache__
+**/*.pyc
+.pytest_cache
+.ruff_cache
+.mypy_cache
+.claude
+docs
+chroma_db
+# Trained model artifacts are produced by the build's training stage, not shipped in context.
+estc/services/classifier_api/models
+**/*.safetensors
+**/*.pt
+**/*.bin
+.env
+.env.*.local

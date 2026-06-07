@@ -77,13 +77,18 @@ async def astream_ticket(
     company_id: str,
     *,
     config: Optional[dict[str, Any]] = None,
+    active_graph: Optional[Any] = None,
 ) -> AsyncIterator[tuple[str, dict[str, Any]]]:
     """Drive one ticket through the graph, yielding ``(node_name, state_update)`` per
     node transition. This is the per-event feed the Phase 4.6 SSE endpoint will consume.
+
+    ``active_graph`` lets a caller (the orchestrator app) inject a graph compiled with a
+    durable checkpointer; it defaults to the module-level in-memory ``graph``.
     """
+    g = active_graph or graph
     initial = AgentState(ticket_id=ticket_id, raw_issue_text=text, company_id=company_id)
     cfg = config or {"configurable": {"thread_id": ticket_id}}
-    async for chunk in graph.astream(initial, config=cfg, stream_mode="updates"):
+    async for chunk in g.astream(initial, config=cfg, stream_mode="updates"):
         for node_name, update in chunk.items():
             yield node_name, (update or {})
 

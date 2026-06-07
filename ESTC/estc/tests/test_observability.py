@@ -22,8 +22,13 @@ from estc.tests.eval import ragas_eval
 from estc.tests.eval._ragas_compat import ensure_ragas_importable
 
 _FIXTURE = Path(__file__).parent / "eval" / "fixtures" / "eval_tickets.jsonl"
-_TRACE_ENV = ("LANGSMITH_TRACING", "LANGCHAIN_TRACING_V2", "LANGSMITH_PROJECT",
-              "LANGCHAIN_PROJECT", "LANGSMITH_API_KEY")
+_TRACE_ENV = (
+    "LANGSMITH_TRACING",
+    "LANGCHAIN_TRACING_V2",
+    "LANGSMITH_PROJECT",
+    "LANGCHAIN_PROJECT",
+    "LANGSMITH_API_KEY",
+)
 
 
 @pytest.fixture(autouse=True)
@@ -40,15 +45,15 @@ def _restore_trace_env():
 
 # --- AC-T1 -----------------------------------------------------------------
 def test_configure_tracing_off_without_key(monkeypatch):
-    monkeypatch.setattr(observability, "Settings",
-                        lambda: _FakeSettings(tracing=False, key=None))
+    monkeypatch.setattr(observability, "Settings", lambda: _FakeSettings(tracing=False, key=None))
     assert observability.configure_tracing() is False
     assert os.environ.get("LANGSMITH_TRACING") == "false"
 
 
 def test_configure_tracing_on_with_key(monkeypatch):
-    monkeypatch.setattr(observability, "Settings",
-                        lambda: _FakeSettings(tracing=True, key="ls-dummy"))
+    monkeypatch.setattr(
+        observability, "Settings", lambda: _FakeSettings(tracing=True, key="ls-dummy")
+    )
     assert observability.configure_tracing() is True
     assert os.environ.get("LANGSMITH_TRACING") == "true"
     assert os.environ.get("LANGSMITH_PROJECT") == "estc-dev"
@@ -56,8 +61,9 @@ def test_configure_tracing_on_with_key(monkeypatch):
 
 def test_configure_tracing_off_when_key_but_flag_disabled(monkeypatch):
     # Key present but the toggle off => inactive (the real .env shape on this box).
-    monkeypatch.setattr(observability, "Settings",
-                        lambda: _FakeSettings(tracing=False, key="ls-dummy"))
+    monkeypatch.setattr(
+        observability, "Settings", lambda: _FakeSettings(tracing=False, key="ls-dummy")
+    )
     assert observability.configure_tracing() is False
 
 
@@ -70,7 +76,9 @@ class _FakeSettings:
 
 # --- AC-T3 -----------------------------------------------------------------
 def test_fixture_integrity():
-    rows = [json.loads(l) for l in _FIXTURE.read_text(encoding="utf-8").splitlines() if l.strip()]
+    rows = [
+        json.loads(ln) for ln in _FIXTURE.read_text(encoding="utf-8").splitlines() if ln.strip()
+    ]
     assert len(rows) == 20
     assert all(r["question"] and r["ground_truth"] and r["company_id"] for r in rows)
     assert set(r["intent"] for r in rows) == {"billing", "bug", "feature", "lockout"}
@@ -83,9 +91,13 @@ async def test_collect_samples_shape(monkeypatch):
 
     async def _fake_run_ticket(ticket_id, text, company_id):
         return AgentState(
-            ticket_id=ticket_id, raw_issue_text=text, company_id=company_id,
-            intent="bug", agent_draft_response="a grounded draft",
-            retrieved_context=["chunk-1"], confidence_score=0.85,
+            ticket_id=ticket_id,
+            raw_issue_text=text,
+            company_id=company_id,
+            intent="bug",
+            agent_draft_response="a grounded draft",
+            retrieved_context=["chunk-1"],
+            confidence_score=0.85,
             execution_logs=["classified:bug", "bug_drafted", "AUTO_APPROVED"],
         )
 
@@ -105,8 +117,8 @@ def test_eval_skips_without_judge(monkeypatch, tmp_path):
     results = ragas_eval.RESULTS
     if results.exists():
         results.unlink()
-    assert ragas_eval.main() == 0          # clean skip, not a failure
-    assert not results.exists()            # no bogus CSV written
+    assert ragas_eval.main() == 0  # clean skip, not a failure
+    assert not results.exists()  # no bogus CSV written
 
 
 def test_ragas_importable_via_shim():
@@ -115,8 +127,10 @@ def test_ragas_importable_via_shim():
 
 
 # --- AC-T2 (live, opt-in) --------------------------------------------------
-@pytest.mark.skipif(os.getenv("ESTC_E2E_LIVE") != "1",
-                    reason="live trace: needs LANGSMITH key + network + running orchestrator deps")
+@pytest.mark.skipif(
+    os.getenv("ESTC_E2E_LIVE") != "1",
+    reason="live trace: needs LANGSMITH key + network + running orchestrator deps",
+)
 async def test_langsmith_child_runs():
     import time
 

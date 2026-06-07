@@ -1,32 +1,61 @@
-from fastapi import FastAPI
-from .schemas import ClassifyRequest, ClassifyResponse
-import time
+"""Intent Classifier API (Phase 2, FR-1).
 
-app = FastAPI(title="Mock Classifier API")
+Serves the fine-tuned DistilBERT intent model behind ``POST /classify``. Replaces
+the original keyword-matching mock: intent and confidence are now real model
+outputs, which is what makes the orchestrator's confidence-based escalation
+(supervisor threshold, task 4.3.7) meaningful.
+"""
+
+from __future__ import annotations
+
+import logging
+import time
+from contextlib import asynccontextmanager
+
+from fastapi import FastAPI
+
+from estc.shared.auth import ApiKeyMiddleware
+from estc.shared.logging_setup import RequestIdMiddleware, configure_logging
+
+from .model_loader import get_classifier
+from .schemas import ClassifyRequest, ClassifyResponse
+
+configure_logging("classifier-api")
+logger = logging.getLogger("classifier_api")
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Load weights at startup so the first real request isn't slow and so the
+    # healthcheck reflects a genuinely ready model. A load failure is logged but
+    # not fatal — /healthz reports model_loaded=false and surfaces it.
+    try:
+        get_classifier()
+        logger.info("classifier model loaded")
+    except Exception:  # noqa: BLE001 - report readiness via /healthz, don't crash boot
+        logger.exception("classifier model failed to load at startup")
+    yield
+
+
+app = FastAPI(title="ESTC Intent Classifier API", lifespan=lifespan)
+# Added last = outermost: request-id wraps auth so even 401s carry X-Request-ID.
+app.add_middleware(ApiKeyMiddleware)
+app.add_middleware(RequestIdMiddleware)
+
 
 @app.get("/healthz")
-def health_check():
-    return {"status": "ok", "model_loaded": True}
+def health_check() -> dict[str, object]:
+    try:
+        get_classifier()
+        model_loaded = True
+    except Exception:  # noqa: BLE001
+        model_loaded = False
+    return {"status": "ok" if model_loaded else "degraded", "model_loaded": model_loaded}
+
 
 @app.post("/classify", response_model=ClassifyResponse)
-def classify_text(request: ClassifyRequest):
-    start_time = time.time()
-    text_lower = request.text.lower()
-
-    # Mock Routing Logic
-    if "500" in text_lower or "error" in text_lower or "bug" in text_lower:
-        intent = "bug"
-    elif "login" in text_lower or "lock" in text_lower or "access" in text_lower:
-        intent = "lockout"
-    elif "feature" in text_lower or "add" in text_lower or "idea" in text_lower:
-        intent = "feature"
-    else:
-        intent = "billing"
-
-    latency_ms = (time.time() - start_time) * 1000
-
-    return ClassifyResponse(
-        intent=intent,
-        confidence=0.85, 
-        latency_ms=latency_ms
-    )
+def classify_text(request: ClassifyRequest) -> ClassifyResponse:
+    start = time.perf_counter()
+    intent, confidence = get_classifier().predict(request.text)
+    latency_ms = (time.perf_counter() - start) * 1000
+    return ClassifyResponse(intent=intent, confidence=confidence, latency_ms=latency_ms)

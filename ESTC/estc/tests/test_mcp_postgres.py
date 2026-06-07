@@ -1,7 +1,7 @@
 """Phase 3.1.6 — in-process MCP client + direct-call coverage."""
+
 from __future__ import annotations
 
-import asyncio
 import time
 
 import pytest

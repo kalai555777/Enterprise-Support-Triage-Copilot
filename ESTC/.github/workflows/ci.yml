@@ -1,0 +1,67 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+      - run: pip install "ruff==0.6.*" "black==24.8.*"
+      - name: ruff
+        run: ruff check estc/
+      - name: black --check
+        run: black --check estc/
+
+  typecheck:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+      - run: pip install "mypy==1.11.*" pydantic
+      - name: mypy (shared)
+        run: mypy estc/shared/
+
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+          pip install -r requirements-orchestrator.txt
+          pip install -r requirements-ui.txt
+          pip install -r estc/services/classifier_api/requirements-train.txt
+      - name: Train classifier (so classifier tests run, not skip)
+        run: python -m estc.services.classifier_api.train
+      - name: Run offline test suite
+        # test_rag needs the bge embedder download; test_mcp_postgres needs a seeded
+        # DB — both run in the separate integration workflow, not on every PR.
+        run: pytest estc/tests -q --ignore=estc/tests/test_rag.py --ignore=estc/tests/test_mcp_postgres.py
+
+  docker-build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate compose config
+        run: docker compose config
+      - name: Build classifier image (proves train-at-build multi-stage)
+        run: docker compose build classifier-api
