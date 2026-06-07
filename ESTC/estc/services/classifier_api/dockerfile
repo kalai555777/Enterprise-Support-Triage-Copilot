@@ -35,6 +35,11 @@ COPY estc/shared/logging_setup.py ./estc/shared/logging_setup.py
 COPY estc/shared/auth.py ./estc/shared/auth.py
 COPY --from=trainer /build/model ./models/distilbert_intent
 
+# Drop privileges: run as a non-root user (least privilege). Model + code are
+# read-only at runtime, so no writable paths need chowning.
+RUN useradd --create-home --uid 10001 appuser
+USER appuser
+
 EXPOSE 8001
 
 CMD ["python", "-m", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8001"]

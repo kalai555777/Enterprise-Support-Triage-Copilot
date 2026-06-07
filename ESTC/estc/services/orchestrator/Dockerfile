@@ -17,6 +17,13 @@ COPY estc/ ./estc/
 
 ENV PYTHONPATH=/app
 
+# Drop privileges: run as a non-root user (least privilege). The chroma_db RW bind
+# mount must be writable by uid 10001 — on Docker Desktop it is regardless; on a
+# native Linux host, match the host dir owner or use a named volume in production.
+RUN useradd --create-home --uid 10001 appuser && \
+    mkdir -p /app/chroma_db && chown -R appuser:appuser /app
+USER appuser
+
 EXPOSE 8002
 
 CMD ["python", "-m", "uvicorn", "estc.services.orchestrator.app.main:app", "--host", "0.0.0.0", "--port", "8002"]

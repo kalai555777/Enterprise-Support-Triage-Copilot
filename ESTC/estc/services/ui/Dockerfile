@@ -13,6 +13,10 @@ RUN pip install --no-cache-dir --upgrade pip \
 # app.py, state.py, orchestrator_client.py, components/ — the whole ui/ tree.
 COPY . .
 
+# Drop privileges: run as a non-root user (least privilege).
+RUN useradd --create-home --uid 10001 appuser
+USER appuser
+
 EXPOSE 8501
 
 # headless flags keep Streamlit from trying to open a browser / collect usage stats in-container.

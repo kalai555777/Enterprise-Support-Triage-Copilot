@@ -1,4 +1,14 @@
+import os
+
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+# Production secret source: when secrets are mounted as files (Docker/K8s secrets,
+# one file per setting, e.g. /run/secrets/POSTGRES_PASSWORD), pydantic-settings reads
+# them automatically and they take precedence over .env. Falls back to None in dev so
+# nothing breaks when the directory is absent.
+_SECRETS_DIR = os.getenv("ESTC_SECRETS_DIR") or (
+    "/run/secrets" if os.path.isdir("/run/secrets") else None
+)
 
 
 class Settings(BaseSettings):
@@ -25,5 +35,10 @@ class Settings(BaseSettings):
     # Durable LangGraph checkpointing via Postgres (falls back to in-memory if off/unavailable).
     ESTC_PERSIST_POSTGRES: bool = False
 
-    # Tell Pydantic to read from the .env file in the root directory
-    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
+    # Read from .env (dev) and, when present, file-mounted secrets (prod).
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        env_file_encoding="utf-8",
+        extra="ignore",
+        secrets_dir=_SECRETS_DIR,
+    )

@@ -8,4 +8,8 @@ RUN pip install --no-cache-dir --upgrade pip && \
 
 COPY server.py ./server.py
 
+# Drop privileges: run as a non-root user (least privilege).
+RUN useradd --create-home --uid 10001 appuser
+USER appuser
+
 CMD ["python", "server.py"]
