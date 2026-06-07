@@ -58,7 +58,8 @@ services:
       # (langchain-huggingface) when HF_TOKEN is set; any HF failure falls back to
       # the deterministic template. HF_REPO_ID is overridable to try other free models.
       HF_TOKEN: ${HF_TOKEN:-}
-      HF_REPO_ID: ${HF_REPO_ID:-meta-llama/Meta-Llama-3-8B-Instruct}
+      # Default to the 3B Llama (much faster than 8B on free serverless); override in .env.
+      HF_REPO_ID: ${HF_REPO_ID:-meta-llama/Llama-3.2-3B-Instruct}
       LANGSMITH_API_KEY: ${LANGSMITH_API_KEY:-}
       LANGSMITH_TRACING: ${LANGSMITH_TRACING:-false}
       LANGSMITH_PROJECT: ${LANGSMITH_PROJECT:-estc-dev}

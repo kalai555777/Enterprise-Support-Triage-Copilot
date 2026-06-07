@@ -46,8 +46,9 @@ def combine_confidence(classifier_confidence: float, has_context: bool) -> float
 
 
 # Hugging Face hosted-inference model. Configurable via env so a different free
-# model can be tried without a rebuild (design.md names Llama-3-8B-Instruct).
-HF_REPO_ID = os.environ.get("HF_REPO_ID", "meta-llama/Meta-Llama-3-8B-Instruct")
+# model can be tried without a rebuild. Defaults to the 3B Llama for low latency
+# on free serverless (the 8B is much slower on cold start).
+HF_REPO_ID = os.environ.get("HF_REPO_ID", "meta-llama/Llama-3.2-3B-Instruct")
 
 
 @lru_cache(maxsize=1)
