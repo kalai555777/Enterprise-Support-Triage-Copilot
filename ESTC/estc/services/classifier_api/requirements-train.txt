@@ -3,3 +3,4 @@
 -r requirements.txt
 pandas==2.2.*
 scikit-learn==1.4.*
+accelerate==0.27.*  # required by HF Trainer (>=0.21) for the PyTorch training loop

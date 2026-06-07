@@ -4,5 +4,8 @@
 fastapi==0.115.*
 uvicorn[standard]==0.30.*
 pydantic==2.9.*
+# numpy must stay <2: torch 2.2 / transformers 4.38 were built against numpy 1.x,
+# and a fresh install otherwise pulls numpy 2.x ("RuntimeError: Numpy is not available").
+numpy==1.26.*
 torch==2.2.*
 transformers==4.38.*

@@ -95,7 +95,9 @@ def main() -> None:
         per_device_train_batch_size=16,
         per_device_eval_batch_size=32,
         learning_rate=5e-5,
-        eval_strategy="epoch",
+        # transformers 4.38 (the pinned runtime) names this `evaluation_strategy`;
+        # it was renamed to `eval_strategy` only in 4.46+.
+        evaluation_strategy="epoch",
         save_strategy="no",
         logging_steps=20,
         seed=SEED,
